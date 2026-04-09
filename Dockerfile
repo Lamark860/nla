@@ -1,0 +1,31 @@
+# Build stage
+FROM golang:1.25-alpine AS builder
+
+RUN apk add --no-cache git
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Test stage (docker build --target test .)
+FROM builder AS test
+RUN go test ./internal/... -count=1
+
+# Build binary
+FROM builder AS build
+RUN CGO_ENABLED=0 GOOS=linux go build -o /nla-api ./cmd/api
+
+# Runtime stage
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates tzdata
+
+WORKDIR /app
+COPY --from=build /nla-api .
+
+EXPOSE 8080
+
+CMD ["./nla-api"]

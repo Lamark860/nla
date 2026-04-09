@@ -1,0 +1,118 @@
+services:
+  # Go API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nla-api
+    ports:
+      - "8085:8080"
+    environment:
+      - PORT=8080
+      - ENVIRONMENT=development
+      - POSTGRES_DSN=postgres://nla:nla_secret@postgres:5432/nla?sslmode=disable
+      - MONGO_URI=mongodb://mongo:27017
+      - MONGO_DB=nla
+      - REDIS_ADDR=redis:6379
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - nla-net
+
+  # PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: nla-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: nla
+      POSTGRES_PASSWORD: nla_secret
+      POSTGRES_DB: nla
+    volumes:
+      - nla-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nla"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - nla-net
+
+  # MongoDB
+  mongo:
+    image: mongo:7
+    container_name: nla-mongo
+    ports:
+      - "27018:27017"
+    volumes:
+      - nla-mongodata:/data/db
+    restart: unless-stopped
+    networks:
+      - nla-net
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: nla-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - nla-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - nla-net
+
+  # Nuxt 3 Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nla-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NUXT_PUBLIC_API_BASE=/api/v1
+      - NUXT_API_BASE_SERVER=http://api:8080/api/v1
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - nla-net
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: nla-nginx
+    ports:
+      - "8090:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - frontend
+    restart: unless-stopped
+    networks:
+      - nla-net
+
+volumes:
+  nla-pgdata:
+  nla-mongodata:
+  nla-redisdata:
+
+networks:
+  nla-net:
+    driver: bridge

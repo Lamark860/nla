@@ -1,0 +1,235 @@
+# CLAUDE.md — NLA Project Context
+
+## Project
+
+**NLA** — анализатор финансовых инструментов. Новый стек, эволюция проекта ASH.
+Go API + PostgreSQL + MongoDB + Redis + Nginx.
+
+## Stack
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| API | Go 1.25 + Chi router | REST API, WebSocket (future) |
+| Auth | JWT (HS256) + bcrypt | Stateless authentication |
+| Relational DB | PostgreSQL 16 | Users, auth, favorites, portfolios |
+| Document DB | MongoDB 7 | Bonds, AI analyses, news, chats |
+| Cache/Queue | Redis 7 | Cache, job queue, pub/sub |
+| Proxy | Nginx | Reverse proxy, static, WebSocket |
+
+## Commands
+
+```bash
+# Start everything
+cd /Users/maximlomaev/dockers/preprod/src/nla
+docker compose up -d
+
+# Rebuild after code changes (API only)
+docker compose up -d --build api
+
+# Rebuild frontend
+docker compose up -d --build frontend
+
+# Rebuild everything
+docker compose up -d --build
+
+# Logs
+docker compose logs -f api
+
+# Stop
+docker compose down
+
+# Full reset (including volumes)
+docker compose down -v
+```
+
+## Tests
+
+```bash
+# Run all tests
+make test
+
+# Verbose
+make test-v
+
+# With coverage report
+make test-cover
+
+# Specific package
+go test ./internal/service/... -v
+go test ./internal/middleware/... -v
+go test ./internal/handler/... -v
+```
+
+### Test structure (48 tests, all passing)
+- `internal/service/auth_test.go` — auth unit tests (mock repo, 12 tests)
+- `internal/service/analysis_test.go` — rating parser (18 tests)
+- `internal/middleware/auth_test.go` — JWT middleware (9 tests)
+- `internal/handler/auth_test.go` — HTTP handler integration (9 tests)
+- `internal/handler/test_helpers_test.go` — shared test mocks
+
+## API Documentation
+
+OpenAPI 3.0 spec: `docs/openapi.yaml`
+View with: https://editor.swagger.io (paste YAML) or any OpenAPI viewer
+
+## Ports
+
+| Service | Host Port | Container Port |
+|---------|-----------|---------------|
+| Nginx | 8090 | 80 |
+| Go API | 8085 | 8080 |
+| Frontend (Nuxt 3) | 3000 | 3000 |
+| PostgreSQL | 5433 | 5432 |
+| MongoDB | 27018 | 27017 |
+| Redis | 6380 | 6379 |
+
+**UI:** http://localhost:8090/ (через Nginx → Frontend)
+**API:** http://localhost:8090/api/v1/ (через Nginx → Go)
+
+## Project Structure
+
+```
+nla/
+├── cmd/api/main.go              # Entry point, DI wiring, queue worker
+├── internal/
+│   ├── config/config.go         # Environment config (DB, Redis, OpenAI, JWT)
+│   ├── database/                # DB connections (postgres, mongo, redis)
+│   ├── client/
+│   │   ├── moex/client.go       # MOEX ISS API client (5 endpoints)
+│   │   └── openai/client.go     # OpenAI client (retry, reasoning models)
+│   ├── handler/
+│   │   ├── auth.go              # Auth handlers + Handler struct
+│   │   ├── bond.go              # Bond endpoints (list, detail, coupons, history)
+│   │   └── analysis.go          # AI analysis + job polling
+│   ├── middleware/auth.go       # JWT middleware
+│   ├── model/                   # Data models (user, bond, job, chat)
+│   ├── mongo/
+│   │   ├── analysis.go          # BondAnalysis MongoDB repo
+│   │   └── queue.go             # QueueJob MongoDB repo
+│   ├── queue/worker.go          # Background job worker (goroutine)
+│   ├── repository/user.go       # PostgreSQL user queries
+│   ├── service/
+│   │   ├── auth.go              # Auth business logic
+│   │   ├── bond.go              # MOEX data + cache + calculations
+│   │   ├── analysis.go          # AI analysis + rating parser
+│   │   └── queue.go             # Job lifecycle + dedup
+│   └── router/router.go         # Chi routes
+├── data/prompts/bond_analyst.txt # AI system prompt
+├── frontend/                    # Nuxt 3 (Vue 3 + Tailwind + Chart.js)
+│   ├── nuxt.config.ts
+│   ├── Dockerfile               # Node 20 Alpine multi-stage
+│   ├── layouts/default.vue      # Header, nav, dark mode toggle
+│   ├── pages/
+│   │   ├── index.vue            # Bond list with sort/pagination
+│   │   ├── bonds/[secid].vue    # Bond detail with tabs
+│   │   └── bonds/monthly.vue    # Monthly coupons
+│   ├── components/              # BondTable, BondAiTab, charts, etc.
+│   └── composables/             # useApi.ts, useFormat.ts
+├── nginx/nginx.conf             # Reverse proxy (/ → frontend, /api → Go)
+├── docker-compose.yml           # 6 services
+├── Dockerfile                   # Multi-stage Go build
+└── docs/                        # Architecture, entities, API plan, OpenAPI
+```
+
+## API Endpoints
+
+```
+GET  /health                          — Health check
+
+# Auth
+POST /api/v1/auth/register            — Register user
+POST /api/v1/auth/login               — Login, returns JWT
+GET  /api/v1/auth/me                  — Current user (JWT required)
+
+# Bonds (public)
+GET  /api/v1/bonds                    — List bonds (page, per_page, sort)
+GET  /api/v1/bonds/monthly            — Monthly coupon bonds
+GET  /api/v1/bonds/{secid}            — Bond detail
+GET  /api/v1/bonds/{secid}/coupons    — Coupon schedule
+GET  /api/v1/bonds/{secid}/history    — Price history (candles)
+
+# AI Analysis (public)
+POST /api/v1/bonds/{secid}/analyze    — Start AI analysis (async)
+GET  /api/v1/bonds/{secid}/analyses   — List analyses for bond
+GET  /api/v1/bonds/{secid}/analysis-stats — Analysis statistics
+GET  /api/v1/analyses/{id}            — Single analysis by ID
+
+# Jobs & Queue
+GET  /api/v1/jobs/{id}                — Job status (polling)
+GET  /api/v1/queue/stats              — Queue statistics
+
+# Favorites (JWT required)
+GET    /api/v1/favorites              — List user's favorites
+POST   /api/v1/favorites/toggle       — Toggle favorite (add/remove)
+GET    /api/v1/favorites/check        — Check multiple secids (?secids=A,B)
+POST   /api/v1/favorites/{secid}      — Add to favorites
+DELETE /api/v1/favorites/{secid}      — Remove from favorites
+```
+
+## Architecture Pattern
+
+```
+                    ┌─ Frontend (Nuxt 3 SSR) ─┐
+                    │  pages → composables     │
+                    │      ↓ fetch /api/v1     │
+                    └──────────────────────────┘
+                              ↓ Nginx
+Handler → Service → Repository/Repo → Database
+   ↓         ↓         ↗
+ JSON    Business    Queue Worker
+         logic       (goroutine)
+              ↓
+         OpenAI / MOEX ISS
+```
+
+- **Handler**: HTTP layer, request parsing, response writing
+- **Service**: Business logic, validation, orchestration
+- **Repository**: Database queries only
+- **Model**: Data structures, request/response types
+
+## Style
+
+- Go idioms: error wrapping, context propagation, interface-based DI
+- No ORM — raw SQL via pgx for PostgreSQL
+- Official driver for MongoDB
+- Chi router (stdlib-compatible, middleware-friendly)
+- Multi-stage Docker builds (builder → alpine runtime)
+
+## ASH → NLA Migration Status
+
+Original project: `/Users/maximlomaev/dockers/src/ash` (Yii2 PHP)
+Reference UI: `http://postroika.test:8081/bond`
+
+### Feature Parity
+
+| Feature | ASH | NLA | Status |
+|---------|-----|-----|--------|
+| Bond list (table, sort, paginate) | ✅ | ✅ | Done |
+| Bond detail — 7 tabs | ✅ 8 tabs | ✅ 7 tabs | No "Details" tab |
+| Basic: Params + Финансы | ✅ | ✅ | Done |
+| Basic: Даты + прогресс жизни | ✅ | ✅ | Done |
+| Basic: Купонные параметры | ✅ | ✅ | Done |
+| Trading: Stat cards + price bars | ✅ | ✅ | Done |
+| Trading: Глубина стакана | ✅ | ✅ | Done |
+| Trading: Торговые данные за день | ✅ | ✅ | Done (v0.6) |
+| History: Chart + stats | ✅ combo | ✅ combo | Done — volume bars + nominal (v0.6) |
+| Yields: 4 cards + comparison | ✅ | ✅ | Done — 5 types + decomposition (v0.6) |
+| Coupons: Schedule table | ✅ | ✅ | Done |
+| Coupons: Прогноз по годам | ✅ | ✅ | Done (v0.6) |
+| AI Analysis: Send + poll + history | ✅ | ✅ | Done |
+| External: iframes | ✅ | ✅ | Done |
+| Details tab (dohod.ru data) | ✅ | ❌ | Missing tab entirely |
+| By issuer: cards + filters | ✅ | ✅ | Done |
+| Monthly coupons | ✅ | ✅ | Done |
+| Credit ratings | ✅ | ✅ | Done |
+| Dark theme | ✅ | ✅ | Done |
+| Chat | ✅ | ✅ | Done |
+| Favorites/Watchlist | ✅ | ✅ | Done (v0.7) — full stack |
+| Trading status badges | ✅ | ✅ | Done (existing) |
+| Auth UI (login/register) | ✅ | ✅ | Done (v0.7) |
+| Tools page | ✅ | ❌ | Not yet |
+
+### Known Issues
+- Bondization endpoint was using wrong MOEX ISS path (fixed: `securities/{secid}/bondization.json`)
+- Some bonds show >999% yield (capped at >999% in display)
+- Panel-header SVGs needed explicit `w-4 h-4` classes (CSS `@apply` not sufficient in all cases)

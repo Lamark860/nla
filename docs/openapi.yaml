@@ -1,0 +1,554 @@
+openapi: 3.0.3
+info:
+  title: NLA API
+  description: |
+    NLA — API для анализа финансовых инструментов.
+    
+    ## Аутентификация
+    
+    API использует JWT Bearer токены. Получите токен через `/auth/register` или `/auth/login`,
+    затем передавайте его в заголовке:
+    
+    ```
+    Authorization: Bearer <token>
+    ```
+    
+    Токен действителен 72 часа.
+  version: 0.2.0
+  contact:
+    name: NLA Team
+
+servers:
+  - url: http://localhost:8085/api/v1
+    description: Development (прямой доступ к Go API)
+  - url: http://localhost:8090/api/v1
+    description: Development (через Nginx)
+
+tags:
+  - name: health
+    description: Проверка состояния сервиса
+  - name: auth
+    description: Регистрация, логин, текущий пользователь
+  - name: bonds
+    description: Облигации MOEX (список, детали, купоны, история)
+  - name: analysis
+    description: AI-анализ облигаций
+  - name: jobs
+    description: Фоновые задачи и очередь
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      description: Проверка что API работает
+      operationId: healthCheck
+      servers:
+        - url: http://localhost:8085
+        - url: http://localhost:8090
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Регистрация нового пользователя
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: user@example.com
+              password: securepass123
+              name: Иван Петров
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                emptyFields:
+                  value:
+                    error: email and password are required
+                shortPassword:
+                  value:
+                    error: password must be at least 8 characters
+                duplicate:
+                  value:
+                    error: "create user: duplicate email"
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Авторизация
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: user@example.com
+              password: securepass123
+      responses:
+        '200':
+          description: Успешный логин
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Неверные учётные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: invalid credentials
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Текущий пользователь
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: authorization header required
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bonds:
+    get:
+      tags: [bonds]
+      summary: Список облигаций
+      operationId: listBonds
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: sort
+          in: query
+          schema: { type: string, default: best, enum: [best, yield_desc, yield_asc, duration_asc, duration_desc, volume_desc, coupon_desc, maturity_asc] }
+      responses:
+        '200':
+          description: Список облигаций с пагинацией
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BondListResponse'
+
+  /bonds/monthly:
+    get:
+      tags: [bonds]
+      summary: Облигации с купоном в этом месяце
+      operationId: getMonthlyBonds
+      responses:
+        '200':
+          description: Массив облигаций
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Bond'
+
+  /bonds/{secid}:
+    get:
+      tags: [bonds]
+      summary: Детали облигации
+      operationId: getBond
+      parameters:
+        - name: secid
+          in: path
+          required: true
+          schema: { type: string }
+          example: RU000A107EC7
+      responses:
+        '200':
+          description: Данные облигации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BondDetail'
+        '404':
+          description: Облигация не найдена
+
+  /bonds/{secid}/coupons:
+    get:
+      tags: [bonds]
+      summary: Купонный календарь
+      operationId: getBondCoupons
+      parameters:
+        - name: secid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Список купонов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Coupon'
+
+  /bonds/{secid}/history:
+    get:
+      tags: [bonds]
+      summary: История цен (OHLC)
+      operationId: getBondHistory
+      parameters:
+        - name: secid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Массив свечей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OHLC'
+
+  /bonds/{secid}/analyze:
+    post:
+      tags: [analysis]
+      summary: Запустить AI-анализ (async)
+      operationId: startAnalysis
+      parameters:
+        - name: secid
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                json_data: { type: object }
+                custom_json: { type: object }
+      responses:
+        '202':
+          description: Задача создана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id: { type: string, example: "job_a1b2c3d4e5f6-7890" }
+                  status: { type: string, example: pending }
+
+  /bonds/{secid}/analyses:
+    get:
+      tags: [analysis]
+      summary: Список анализов облигации
+      operationId: getAnalyses
+      parameters:
+        - name: secid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Массив анализов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BondAnalysis'
+
+  /bonds/{secid}/analysis-stats:
+    get:
+      tags: [analysis]
+      summary: Статистика анализов
+      operationId: getAnalysisStats
+      parameters:
+        - name: secid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Агрегированная статистика
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisStats'
+
+  /analyses/{id}:
+    get:
+      tags: [analysis]
+      summary: Конкретный анализ по ID
+      operationId: getAnalysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Анализ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BondAnalysis'
+        '404':
+          description: Анализ не найден
+
+  /jobs/{id}:
+    get:
+      tags: [jobs]
+      summary: Статус задачи (polling)
+      operationId: getJobStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Статус задачи
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          description: Задача не найдена
+
+  /queue/stats:
+    get:
+      tags: [jobs]
+      summary: Статистика очереди
+      operationId: getQueueStats
+      responses:
+        '200':
+          description: Количество задач по статусам
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: { type: integer }
+                example: { pending: 2, running: 1, done: 15, error: 0 }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен, полученный через /auth/login или /auth/register
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email пользователя (уникальный)
+          maxLength: 255
+        password:
+          type: string
+          minLength: 8
+          description: Пароль (минимум 8 символов)
+        name:
+          type: string
+          description: Имя пользователя
+          maxLength: 255
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT токен (действует 72 часа)
+          example: eyJhbGciOiJIUzI1NiIs...
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        name:
+          type: string
+          example: Иван Петров
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Описание ошибки
+
+    Bond:
+      type: object
+      properties:
+        secid: { type: string, example: RU000A107EC7 }
+        shortname: { type: string, example: "МТС 001P-23" }
+        secname: { type: string }
+        isin: { type: string }
+        facevalue: { type: number, example: 1000 }
+        matdate: { type: string, example: "2027-06-15" }
+        coupon_period: { type: integer, example: 182 }
+        coupon_value: { type: number, example: 41.68 }
+        coupon_percent: { type: number, example: 8.4 }
+        next_coupon: { type: string }
+        accrued_int: { type: number, example: 12.5 }
+        bond_type: { type: string }
+        last: { type: number, nullable: true, example: 98.5 }
+        yield: { type: number, nullable: true, example: 12.35 }
+        duration: { type: integer, nullable: true, example: 450 }
+        vol_today: { type: integer }
+        price_rub: { type: number, nullable: true, example: 985.0 }
+        days_to_maturity: { type: integer, nullable: true }
+        bond_category: { type: string }
+
+    BondListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bond'
+        meta:
+          type: object
+          properties:
+            page: { type: integer }
+            per_page: { type: integer }
+            total: { type: integer }
+
+    BondDetail:
+      type: object
+      properties:
+        bond:
+          $ref: '#/components/schemas/Bond'
+        coupons:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coupon'
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/OHLC'
+        emitter_id: { type: integer, nullable: true }
+        emitter_name: { type: string }
+
+    Coupon:
+      type: object
+      properties:
+        coupon_date: { type: string, example: "2026-06-15" }
+        record_date: { type: string }
+        start_date: { type: string }
+        value: { type: number, example: 41.68 }
+        value_percent: { type: number, example: 8.4 }
+        value_rub: { type: number, example: 41.68 }
+
+    OHLC:
+      type: object
+      properties:
+        date: { type: string, example: "2026-04-01" }
+        open: { type: number }
+        close: { type: number }
+        high: { type: number }
+        low: { type: number }
+        volume: { type: integer }
+        value: { type: number }
+
+    BondAnalysis:
+      type: object
+      properties:
+        id: { type: string, example: analysis_a1b2c3d4e5f6-7890 }
+        secid: { type: string }
+        response: { type: string, description: "Полный текст AI-ответа (markdown)" }
+        rating: { type: integer, nullable: true, minimum: 0, maximum: 100, example: 72 }
+        timestamp: { type: string, format: date-time }
+
+    AnalysisStats:
+      type: object
+      properties:
+        total: { type: integer, example: 3 }
+        avg_rating: { type: number, example: 68.5 }
+        last_analysis: { type: string, format: date-time, nullable: true }
+
+    JobStatus:
+      type: object
+      properties:
+        job_id: { type: string }
+        type: { type: string, enum: [ai_analysis, parse_bond, parse_emitter, sync_issuer] }
+        status: { type: string, enum: [pending, running, done, error] }
+        result: { type: object, nullable: true }
+        error: { type: string }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time, nullable: true }
