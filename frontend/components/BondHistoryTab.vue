@@ -95,27 +95,37 @@
       <!-- Statistics tables -->
       <div class="row g-4">
         <div class="col-lg-6">
-          <div class="card p-4">
-            <h3 class="section-title mb-3">Статистика за период</h3>
-            <InfoRow label="Общий объём, шт." :value="fmt.num(totalVolume)" />
-            <InfoRow label="Общая сумма, ₽" :value="fmt.volume(totalValue)" />
-            <InfoRow label="Средний объём/день" :value="fmt.num(avgVolume)" />
-            <InfoRow label="Средняя цена" :value="fmt.percent(stats.avg)" />
-            <InfoRow label="Мин. цена" :value="fmt.percent(stats.low)" />
-            <InfoRow label="Макс. цена" :value="fmt.percent(stats.high)" />
-            <InfoRow label="Размах" :value="stats.high && stats.low ? (stats.high - stats.low).toFixed(2) + ' п.п.' : '—'" />
+          <div class="card overflow-hidden">
+            <div class="panel-header">
+              <i class="bi bi-calculator"></i>
+              Статистика за период
+            </div>
+            <div>
+              <InfoRow label="Общий объём, шт." :value="fmt.num(totalVolume)" />
+              <InfoRow label="Общая сумма, ₽" :value="fmt.volume(totalValue)" />
+              <InfoRow label="Средний объём/день" :value="fmt.num(avgVolume)" />
+              <InfoRow label="Средняя цена" :value="fmt.percent(stats.avg)" />
+              <InfoRow label="Мин. цена" :value="fmt.percent(stats.low)" />
+              <InfoRow label="Макс. цена" :value="fmt.percent(stats.high)" />
+              <InfoRow label="Размах" :value="stats.high && stats.low ? (stats.high - stats.low).toFixed(2) + ' п.п.' : '—'" />
+            </div>
           </div>
         </div>
         <div class="col-lg-6">
-          <div class="card p-4">
-            <h3 class="section-title mb-3">Изменение цены</h3>
-            <InfoRow label="Начальная цена" :value="fmt.percent(firstClose)" />
-            <InfoRow label="Конечная цена" :value="fmt.percent(lastClose)" />
-            <InfoRow label="Общее изменение" :value="priceChange" />
-            <InfoRow label="Изменение, %" :value="priceChangePct" />
-            <InfoRow label="Волатильность (σ)" :value="volatility" />
-            <InfoRow label="Номинал" :value="bond.facevalue ? fmt.priceRub(bond.facevalue) : '—'" />
-            <InfoRow label="Отклонение от номинала" :value="lastClose ? (lastClose - 100).toFixed(2) + ' п.п.' : '—'" />
+          <div class="card overflow-hidden">
+            <div class="panel-header">
+              <i class="bi bi-graph-up-arrow"></i>
+              Изменение цены
+            </div>
+            <div>
+              <InfoRow label="Начальная цена" :value="fmt.percent(firstClose)" />
+              <InfoRow label="Конечная цена" :value="fmt.percent(lastClose)" />
+              <InfoRow label="Общее изменение" :value="priceChange" />
+              <InfoRow label="Изменение, %" :value="priceChangePct" />
+              <InfoRow label="Волатильность (σ)" :value="volatility" />
+              <InfoRow label="Номинал" :value="bond.facevalue ? fmt.priceRub(bond.facevalue) : '—'" />
+              <InfoRow label="Отклонение от номинала" :value="lastClose ? (lastClose - 100).toFixed(2) + ' п.п.' : '—'" />
+            </div>
           </div>
         </div>
       </div>

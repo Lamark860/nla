@@ -22,7 +22,7 @@
     --nla-info: #06b6d4;
 
     /* Surfaces */
-    --nla-bg: #f1f5f9;
+    --nla-bg: #f8f9fb;
     --nla-bg-card: #ffffff;
     --nla-bg-hover: #f8fafc;
     --nla-bg-input: #ffffff;
@@ -31,7 +31,7 @@
     /* Text */
     --nla-text: #0f172a;
     --nla-text-secondary: #475569;
-    --nla-text-muted: #94a3b8;
+    --nla-text-muted: #64748b;
     --nla-text-inverse: #ffffff;
 
     /* Borders & Shadows */
@@ -85,8 +85,7 @@
 
     --nla-text: #f1f5f9;
     --nla-text-secondary: #cbd5e1;
-    --nla-text-muted: #64748b;
-    --nla-text-inverse: #0f172a;
+    --nla-text-muted: #8b9bb5;    --nla-text-inverse: #0f172a;
 
     --nla-border: #334155;
     --nla-border-light: #1e293b;
@@ -1305,3 +1304,5 @@ a.desc:after { border-top: solid 7px var(--nla-text); border-bottom-width: 0; }
 .filter-panel .input-group-sm .form-control {
     min-width: 0;
 }
+
+

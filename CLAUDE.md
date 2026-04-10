@@ -60,13 +60,15 @@ go test ./internal/middleware/... -v
 go test ./internal/handler/... -v
 ```
 
-### Test structure (54 tests, all passing)
+### Test structure (61 tests, all passing)
 - `internal/service/auth_test.go` — auth unit tests (mock repo, 12 tests)
-- `internal/service/analysis_test.go` — rating parser (18 tests)
+- `internal/service/analysis_test.go` — rating parser (21 subtests: [RATING:XX.X], итоговая оценка, баллы, bold, /100)
 - `internal/middleware/auth_test.go` — JWT middleware (9 tests)
 - `internal/handler/auth_test.go` — HTTP handler integration (9 tests)
 - `internal/handler/test_helpers_test.go` — shared test mocks
 - `internal/client/dohod/client_test.go` — dohod.ru Nuxt payload parser (6 tests)
+
+**Note:** MongoDB-dependent code (IssuerRepo, AnalysisRepo, etc.) and MOEX API clients are not unit-tested — they require integration environment. Current tests focus on pure logic (parsing, auth, middleware).
 
 ## API Documentation
 
@@ -91,25 +93,29 @@ View with: https://editor.swagger.io (paste YAML) or any OpenAPI viewer
 
 ```
 nla/
-├── cmd/api/main.go              # Entry point, DI wiring, queue worker
+├── cmd/api/main.go              # Entry point, DI wiring, queue worker, issuer sync
+├── cmd/sync-ratings/main.go     # CLI tool for bulk rating sync from dohod.ru
 ├── internal/
 │   ├── config/config.go         # Environment config (DB, Redis, OpenAI, JWT)
 │   ├── database/                # DB connections (postgres, mongo, redis)
 │   ├── client/
-│   │   ├── moex/client.go       # MOEX ISS API client (5 endpoints)
+│   │   ├── moex/client.go       # MOEX ISS API client (5 endpoints + GetDisclosure)
 │   │   ├── openai/client.go     # OpenAI client (retry, reasoning models)
 │   │   └── dohod/client.go      # Dohod.ru Nuxt SSR parser (HTTP + __NUXT_DATA__)
 │   ├── handler/
 │   │   ├── auth.go              # Auth handlers + Handler struct
 │   │   ├── bond.go              # Bond endpoints (list, detail, coupons, history)
-│   │   ├── analysis.go          # AI analysis + job polling
-│   │   └── details.go           # Dohod.ru details endpoint
+│   │   ├── analysis.go          # AI analysis + job polling + delete
+│   │   ├── details.go           # Dohod.ru details endpoint
+│   │   ├── rating.go            # Credit rating CRUD endpoints
+│   │   ├── chat.go              # Chat handler
+│   │   └── favorite.go          # Favorites handler (JWT required)
 │   ├── middleware/auth.go       # JWT middleware
 │   ├── model/                   # Data models (user, bond, job, chat, dohod)
 │   ├── mongo/
 │   │   ├── analysis.go          # BondAnalysis MongoDB repo
 │   │   ├── details.go           # DohodDetails MongoDB repo (30-day TTL cache)
-│   │   ├── issuer.go            # BondIssuer repo (secid ↔ emitter_id mapping)
+│   │   ├── issuer.go            # BondIssuer repo (CRUD, Upsert, GetAllSecids, UpdateEmitterName)
 │   │   ├── rating.go            # IssuerRating repo (credit ratings by emitter_id)
 │   │   ├── chat.go              # Chat sessions/messages repo
 │   │   └── queue.go             # QueueJob MongoDB repo
@@ -119,9 +125,9 @@ nla/
 │   │   └── favorite.go          # PostgreSQL favorites queries
 │   ├── service/
 │   │   ├── auth.go              # Auth business logic
-│   │   ├── bond.go              # MOEX data + cache + calculations + issuer grouping
+│   │   ├── bond.go              # MOEX data + cache + calculations + issuer grouping + SyncMissingIssuers
 │   │   ├── analysis.go          # AI analysis + rating parser
-│   │   ├── details.go           # Dohod.ru service (cache + retry + save + rating sync)
+│   │   ├── details.go           # Dohod.ru service (cache + retry + save + rating sync + emitter name backfill)
 │   │   ├── rating.go            # Credit ratings CRUD + GetAll by emitter_id
 │   │   ├── chat.go              # Chat service
 │   │   └── queue.go             # Job lifecycle + dedup
@@ -169,9 +175,16 @@ GET  /api/v1/bonds/{secid}/analyses   — List analyses for bond
 GET  /api/v1/bonds/{secid}/analysis-stats — Analysis statistics
 GET  /api/v1/analyses/{id}            — Single analysis by ID
 
+# AI Analysis (public)
+DELETE /api/v1/analyses/{id}          — Delete analysis
+
 # Jobs & Queue
 GET  /api/v1/jobs/{id}                — Job status (polling)
 GET  /api/v1/queue/stats              — Queue statistics
+
+# Ratings (public)
+GET  /api/v1/ratings                  — All ratings grouped by emitter_id
+GET  /api/v1/ratings/{emitter_id}     — Ratings for specific emitter
 
 # Favorites (JWT required)
 GET    /api/v1/favorites              — List user's favorites
@@ -191,14 +204,34 @@ dohod.ru fetch → DetailsService.FetchAndSave()
               bond_issuers.GetBySecid(secid) → emitter_id
                         ↓
               issuer_ratings collection (key: emitter_id + agency)
+                        ↓
+              backfill emitter_name → bond_issuers.UpdateEmitterName()
 ```
 
 - Ratings stored by `emitter_id` (int64), NOT by name
 - `emitter_id` resolved from `bond_issuers` (MOEX disclosure API)
 - Score comes from dohod.ru `credit_rating` field (1-10 scale)
-- Agencies: АКРА, Эксперт РА, Fitch, Moody's, S&P
+- Agencies: АКРА, Эксперт РА, Fitch, Moody's, S&P, ДОХОДЪ
 - API `/ratings` returns `map[emitter_id_string]IssuerRatingResponse`
 - Frontend maps directly by `emitter_id` (no fuzzy matching)
+- AI ratings: 0-100 float64 scale (parsed from `[RATING:XX.X]`)
+
+## Issuer Sync Architecture
+
+```
+API startup → BondService.SyncMissingIssuers() (background goroutine)
+                        ↓
+              getAllBonds() (MOEX cache) vs IssuerRepo.GetAllSecids()
+                        ↓
+              for missing: MOEX GetDisclosure() → EMITTER_ID
+                        ↓
+              IssuerRepo.Upsert() → bond_issuers
+```
+
+- Runs once on API startup (2 min timeout)
+- Finds bonds in MOEX but absent from `bond_issuers`
+- Fetches `EMITTER_ID` from MOEX description API (200ms delay between requests)
+- Emitter names backfilled from `issuer_ratings` or from dohod.ru on next fetch
 
 ## Architecture Pattern
 
@@ -267,3 +300,25 @@ Reference UI: `http://postroika.test:8081/bond`
 - Bondization endpoint was using wrong MOEX ISS path (fixed: `securities/{secid}/bondization.json`)
 - Some bonds show >999% yield (capped at >999% in display)
 - Panel-header SVGs needed explicit `w-4 h-4` classes (CSS `@apply` not sufficient in all cases)
+- ~34 emitters still show "Эмитент #NNN" (no dohod.ru data fetched yet, will auto-fill)
+
+## Key Features Added (v0.9+)
+
+### Issuer Auto-Sync
+- `SyncMissingIssuers()` runs on API startup — new MOEX bonds auto-added to `bond_issuers`
+- Emitter names auto-backfilled from dohod.ru via `updateRatingsFromDohod()`
+- `IssuerRepo.Upsert()` / `GetAllSecids()` / `UpdateEmitterName()` methods
+
+### AI Analysis Improvements
+- `BondAnalysis.Rating` changed from `*int` to `*float64` (supports `[RATING:77.5]`)
+- Delete analysis: `DELETE /api/v1/analyses/{id}`
+- Markdown table rendering in AI responses (`renderMarkdown()` → `<table>`)
+
+### Queue Reliability
+- `ResetStaleJobs()` on worker start — resets "running" jobs older than 3 minutes to "pending"
+
+### Frontend
+- Unified rating colors: `aiRatingStyle()`, `aiRatingStyleSoft()`, `issuerRatingBg()` in useFormat.ts
+- Markdown tables in BondAiTab and Chat with dark mode support
+- Text readability: adjusted `--nla-text-muted` (light: `#64748b`, dark: `#8b9bb5`)
+- Background softened: `--nla-bg` light → `#f8f9fb`

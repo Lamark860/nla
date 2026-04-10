@@ -58,6 +58,7 @@ func New(h *handler.Handler) http.Handler {
 			r.Get("/bonds/{secid}/analyses", h.Analysis.GetAnalyses)
 			r.Get("/bonds/{secid}/analysis-stats", h.Analysis.GetAnalysisStats)
 			r.Get("/analyses/{id}", h.Analysis.GetAnalysis)
+			r.Delete("/analyses/{id}", h.Analysis.DeleteAnalysis)
 			r.Get("/analyses/bulk-stats", h.Analysis.GetBulkAnalysisStats)
 			r.Get("/jobs/{id}", h.Analysis.GetJobStatus)
 			r.Get("/queue/stats", h.Analysis.GetQueueStats)

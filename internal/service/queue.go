@@ -83,3 +83,8 @@ func (s *QueueService) FetchPending(ctx context.Context) (*model.QueueJob, error
 func (s *QueueService) GetStats(ctx context.Context) (map[string]int, error) {
 	return s.repo.GetStats(ctx)
 }
+
+// ResetStaleJobs resets jobs stuck in "running" for longer than the given duration
+func (s *QueueService) ResetStaleJobs(ctx context.Context, staleAfter time.Duration) (int64, error) {
+	return s.repo.ResetStaleJobs(ctx, staleAfter)
+}

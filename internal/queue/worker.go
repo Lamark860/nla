@@ -38,6 +38,13 @@ func NewWorker(
 
 // Run starts the worker loop. Blocks until ctx is cancelled.
 func (w *Worker) Run(ctx context.Context) {
+	// Reset jobs stuck in "running" from a previous crash/restart
+	if n, err := w.queueSvc.ResetStaleJobs(ctx, 3*time.Minute); err != nil {
+		log.Printf("WARN: reset stale jobs: %v", err)
+	} else if n > 0 {
+		log.Printf("Reset %d stale running jobs back to pending", n)
+	}
+
 	log.Println("Queue worker started")
 	ticker := time.NewTicker(w.pollInterval)
 	defer ticker.Stop()

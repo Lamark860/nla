@@ -374,6 +374,10 @@ export function useApi() {
       return apiFetch<BondAnalysis>(`/analyses/${id}`)
     },
 
+    deleteAnalysis(id: string) {
+      return apiFetch<{ status: string }>(`/analyses/${id}`, { method: 'DELETE' })
+    },
+
     getAnalysisStats(secid: string) {
       return apiFetch<AnalysisStats>(`/bonds/${secid}/analysis-stats`)
     },

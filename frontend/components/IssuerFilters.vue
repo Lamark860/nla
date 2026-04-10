@@ -98,10 +98,13 @@
           <div class="h5 mb-0 fw-bold" style="font-variant-numeric: tabular-nums">{{ stats.total }}</div>
           <small class="text-muted text-uppercase" style="letter-spacing: 0.05em; font-size: 0.7rem">показано</small>
         </div>
-        <div class="border-start py-1 d-flex flex-column justify-content-center gap-1 ps-3" style="font-size: 0.75rem; line-height: 1.4; width: 24%; flex-shrink: 0">
-          <div class="d-flex justify-content-between"><span class="badge text-white" style="background: #198754; font-size: 0.7rem">AAA(RU)</span><span class="text-muted">АКРА</span></div>
-          <div class="d-flex justify-content-between"><span class="badge text-white" style="background: #0d6efd; font-size: 0.7rem">ruA</span><span class="text-muted">Эксперт РА</span></div>
-          <div class="d-flex justify-content-between"><span class="badge text-white" style="background: #fd7e14; font-size: 0.7rem">B…</span><span class="text-muted">ДОХОДЪ</span></div>
+        <div class="border-start py-1 ps-3" style="width: 38%; flex-shrink: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; align-content: center">
+          <div class="d-flex align-items-center gap-1"><span class="badge font-monospace text-nowrap" :style="ratingChipStyle('AAA(RU)')" style="font-size: 0.7rem; padding: 2px 6px">AAA(RU)</span><span class="text-muted text-nowrap" style="font-size: 0.7rem">АКРА</span></div>
+          <div class="d-flex align-items-center gap-1"><span class="badge font-monospace text-nowrap" :style="ratingChipStyle('ruA+')" style="font-size: 0.7rem; padding: 2px 6px">ruA+</span><span class="text-muted text-nowrap" style="font-size: 0.7rem">Эксперт РА</span></div>
+          <div class="d-flex align-items-center gap-1"><span class="badge font-monospace text-nowrap" :style="ratingChipStyle('BB+.ru')" style="font-size: 0.7rem; padding: 2px 6px">BB+.ru</span><span class="text-muted text-nowrap" style="font-size: 0.7rem">НКР</span></div>
+          <div class="d-flex align-items-center gap-1"><span class="badge font-monospace text-nowrap" :style="ratingChipStyle('BBB|ru|')" style="font-size: 0.7rem; padding: 2px 6px">BBB|ru|</span><span class="text-muted text-nowrap" style="font-size: 0.7rem">НРА</span></div>
+          <div class="d-flex align-items-center gap-1"><span class="badge font-monospace text-nowrap" :style="ratingChipStyle('AA')" style="font-size: 0.7rem; padding: 2px 6px">AA</span><span class="text-muted text-nowrap" style="font-size: 0.7rem">ДОХОДЪ</span></div>
+          <div class="d-flex align-items-center gap-1"><span class="badge font-monospace text-nowrap" :style="ratingChipStyle('Baa1')" style="font-size: 0.7rem; padding: 2px 6px">Baa1</span><span class="text-muted text-nowrap" style="font-size: 0.7rem">Moody's</span></div>
         </div>
       </div>
     </div>
@@ -123,6 +126,9 @@ export interface IssuerFilterValues {
   maturityMax: number | null
   priceMax: number | null
 }
+
+const fmt = useFormat()
+const { ratingChipStyle } = fmt
 
 defineProps<{
   filters: IssuerFilterValues

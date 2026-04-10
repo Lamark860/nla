@@ -103,3 +103,55 @@ func (c *Client) GetDisclosure(ctx context.Context, secid string) (map[string]an
 		"iss.only": "description",
 	})
 }
+
+// CCIRating represents a credit rating from MOEX CCI API
+type CCIRating struct {
+	AgencyName  string `json:"agency_name_short_ru"`
+	RatingValue string `json:"rating_level_name_short_ru"`
+	RatingDate  string `json:"rating_date"`
+}
+
+// GetCCIRatings fetches credit ratings for an emitter from MOEX CCI API.
+// Uses /iss/cci/rating/companies/ecbd_{emitterID}.json with extended JSON format.
+func (c *Client) GetCCIRatings(ctx context.Context, emitterID int64) ([]CCIRating, error) {
+	u := fmt.Sprintf("%s/cci/rating/companies/ecbd_%d.json?iss.json=extended&iss.meta=off", baseURL, emitterID)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("moex cci request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read cci response: %w", err)
+	}
+
+	if len(body) == 0 || resp.StatusCode != http.StatusOK {
+		return nil, nil // empty = no ratings available
+	}
+
+	// CCI extended format: [{charsetinfo}, {cci_rating_companies: [...], cursor: [...]}]
+	var raw []json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("decode cci response: %w", err)
+	}
+
+	if len(raw) < 2 {
+		return nil, nil
+	}
+
+	var data struct {
+		Ratings []CCIRating `json:"cci_rating_companies"`
+	}
+	if err := json.Unmarshal(raw[1], &data); err != nil {
+		return nil, fmt.Errorf("decode cci ratings: %w", err)
+	}
+
+	return data.Ratings, nil
+}

@@ -63,13 +63,42 @@ export function useFormat() {
       return val.toLocaleString('ru-RU')
     },
 
-    /** Rating color class based on score */
-    ratingColor(rating: number | null | undefined): string {
-      if (rating == null) return 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
-      if (rating >= 75) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
-      if (rating >= 55) return 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400'
-      if (rating >= 35) return 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
-      return 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400'
+    /**
+     * Rating color style for AI scores (0-100 scale).
+     * Returns { background, color } for inline styles.
+     */
+    aiRatingStyle(rating: number | null | undefined): { background: string; color: string } {
+      if (rating == null) return { background: '#6c757d', color: '#fff' }
+      if (rating >= 80) return { background: '#198754', color: '#fff' }
+      if (rating >= 60) return { background: '#0d6efd', color: '#fff' }
+      if (rating >= 40) return { background: '#ffc107', color: '#000' }
+      if (rating >= 20) return { background: '#fd7e14', color: '#fff' }
+      return { background: '#dc3545', color: '#fff' }
+    },
+
+    /**
+     * Semi-transparent AI rating style (colored text on tinted background).
+     */
+    aiRatingStyleSoft(rating: number | null | undefined): { background: string; color: string } {
+      if (rating == null) return { background: 'rgba(108,117,125,0.15)', color: '#6c757d' }
+      if (rating >= 80) return { background: 'rgba(25,135,84,0.15)', color: '#198754' }
+      if (rating >= 60) return { background: 'rgba(13,110,253,0.15)', color: '#0d6efd' }
+      if (rating >= 40) return { background: 'rgba(255,193,7,0.15)', color: '#997404' }
+      if (rating >= 20) return { background: 'rgba(253,126,20,0.15)', color: '#fd7e14' }
+      return { background: 'rgba(220,53,69,0.15)', color: '#dc3545' }
+    },
+
+    /**
+     * Issuer/emitter rating color (1-10 dohod.ru scale).
+     * Returns background color string.
+     */
+    issuerRatingBg(score: number): string {
+      const c: Record<number, string> = {
+        10: '#198754', 9: '#198754', 8: '#17a2b8', 7: '#5bc0de',
+        6: '#0d6efd', 5: '#6ea8fe', 4: '#ffc107', 3: '#fd7e14',
+        2: '#dc3545', 1: '#a70820', 0: '#000000',
+      }
+      return c[score] ?? '#6c757d'
     },
 
     /** Date+time — "09.04.2026 19:43:58" */
@@ -93,6 +122,29 @@ export function useFormat() {
       } catch {
         return val
       }
+    },
+
+    /**
+     * Credit rating chip style by rating text (agency-specific formats).
+     * Returns { background, color } for inline styles.
+     */
+    ratingChipStyle(rating: string): { background: string; color: string } {
+      const r = (rating || '').toLowerCase()
+      if (r === 'отозван' || r === 'отозвано' || r.startsWith('wd'))
+        return { background: 'rgba(108,117,125,0.12)', color: 'var(--nla-text-muted)' }
+      if (r.startsWith('aaa') || r.startsWith('ruaaa'))
+        return { background: 'rgba(25,135,84,0.14)', color: '#198754' }
+      if (r.startsWith('aa') || r.startsWith('ruaa'))
+        return { background: 'rgba(13,110,253,0.14)', color: '#0d6efd' }
+      if (r.startsWith('a') || r.startsWith('rua'))
+        return { background: 'rgba(32,201,151,0.14)', color: '#0d9488' }
+      if (r.startsWith('bbb') || r.startsWith('rubbb'))
+        return { background: 'rgba(255,193,7,0.14)', color: '#997404' }
+      if (r.startsWith('bb') || r.startsWith('rubb'))
+        return { background: 'rgba(253,126,20,0.14)', color: '#e8590c' }
+      if (r.startsWith('b') || r.startsWith('rub') || r.startsWith('c') || r.startsWith('d'))
+        return { background: 'rgba(220,53,69,0.14)', color: '#dc3545' }
+      return { background: 'rgba(108,117,125,0.12)', color: 'var(--nla-text)' }
     },
   }
 }

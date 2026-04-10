@@ -3,9 +3,11 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"nla/internal/model"
 )
@@ -95,6 +97,66 @@ func (r *IssuerRepo) GetHiddenEmitterIDs(ctx context.Context) ([]int64, error) {
 		}
 	}
 	return ids, nil
+}
+
+// UpdateEmitterName sets emitter_name for all bonds of a given emitter_id
+func (r *IssuerRepo) UpdateEmitterName(ctx context.Context, emitterID int64, name string) error {
+	_, err := r.col.UpdateMany(ctx,
+		bson.M{"emitter_id": emitterID, "emitter_name": ""},
+		bson.M{"$set": bson.M{"emitter_name": name, "updated_at": time.Now()}},
+	)
+	if err != nil {
+		return fmt.Errorf("update emitter name %d: %w", emitterID, err)
+	}
+	return nil
+}
+
+// Upsert creates or updates bond_issuer by secid
+func (r *IssuerRepo) Upsert(ctx context.Context, issuer *model.BondIssuer) error {
+	now := time.Now()
+	opts := options.Update().SetUpsert(true)
+	_, err := r.col.UpdateOne(ctx,
+		bson.M{"secid": issuer.SECID},
+		bson.M{
+			"$set": bson.M{
+				"emitter_id":   issuer.EmitterID,
+				"emitter_name": issuer.EmitterName,
+				"updated_at":   now,
+			},
+			"$setOnInsert": bson.M{
+				"secid":      issuer.SECID,
+				"is_hidden":  false,
+				"needs_sync": true,
+				"created_at": now,
+			},
+		},
+		opts,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert issuer %s: %w", issuer.SECID, err)
+	}
+	return nil
+}
+
+// GetAllSecids returns all secids present in the collection
+func (r *IssuerRepo) GetAllSecids(ctx context.Context) (map[string]bool, error) {
+	cursor, err := r.col.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"secid": 1}))
+	if err != nil {
+		return nil, fmt.Errorf("find all secids: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	result := make(map[string]bool)
+	for cursor.Next(ctx) {
+		var doc struct {
+			SECID string `bson:"secid"`
+		}
+		if err := cursor.Decode(&doc); err != nil {
+			continue
+		}
+		result[doc.SECID] = true
+	}
+	return result, nil
 }
 
 // GetOneSecidPerEmitter returns one sample secid for each emitter_id.

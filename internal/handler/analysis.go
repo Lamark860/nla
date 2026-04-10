@@ -92,6 +92,22 @@ func (h *AnalysisHandler) GetAnalysis(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, analysis)
 }
 
+// DeleteAnalysis DELETE /api/v1/analyses/{id} — delete analysis
+func (h *AnalysisHandler) DeleteAnalysis(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "id is required"})
+		return
+	}
+
+	if err := h.analysisSvc.Delete(r.Context(), id); err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 // GetAnalysisStats GET /api/v1/bonds/{secid}/analysis-stats — aggregate stats
 func (h *AnalysisHandler) GetAnalysisStats(w http.ResponseWriter, r *http.Request) {
 	secid := chi.URLParam(r, "secid")

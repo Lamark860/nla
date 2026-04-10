@@ -12,26 +12,28 @@
             <strong style="overflow: hidden; text-overflow: ellipsis">{{ issuer.emitter_name || `Эмитент #${issuer.emitter_id}` }}</strong>
           </div>
           <div class="d-flex flex-wrap align-items-center gap-1">
-            <span class="badge bg-secondary">{{ issuer.emitter_id }}</span>
+            <span class="badge bg-secondary font-monospace" style="font-size: 11px; padding: 3px 6px">{{ issuer.emitter_id }}</span>
             <template v-if="getIssuerRating(issuer.emitter_id)">
               <span
-                v-for="r in getIssuerRating(issuer.emitter_id)!.ratings"
+                v-for="r in getIssuerRating(issuer.emitter_id)!.ratings.filter(x => x.rating && x.rating !== 'NULL')"
                 :key="r.agency"
-                class="badge"
-                :style="{ backgroundColor: scoreBadgeColor(getIssuerRating(issuer.emitter_id)!.score) }"
-                :title="`${r.agency}: ${getIssuerRating(issuer.emitter_id)!.score}`"
-              >{{ r.rating }}-{{ getIssuerRating(issuer.emitter_id)!.score }}</span>
+                class="badge font-monospace fw-bold"
+                :style="fmt.ratingChipStyle(r.rating)"
+                :title="r.agency"
+                style="font-size: 11px; padding: 3px 6px"
+              >{{ r.rating }}</span>
             </template>
+            <span v-else class="badge" style="font-size: 11px; padding: 3px 6px; background: rgba(108,117,125,0.08); color: var(--nla-text-muted)">—</span>
             <template v-if="getIssuerAiStats(issuer)">
-              <span class="badge bg-info" :title="`AI: средний балл ${getIssuerAiStats(issuer)!.avg.toFixed(0)}, анализов ${getIssuerAiStats(issuer)!.total}`">
-                🤖 {{ getIssuerAiStats(issuer)!.avg.toFixed(0) }}
+              <span class="badge fw-semibold" :style="fmt.aiRatingStyleSoft(getIssuerAiStats(issuer)!.avg)" :title="`AI: средний балл ${getIssuerAiStats(issuer)!.avg.toFixed(0)}, анализов ${getIssuerAiStats(issuer)!.total}`">
+                🤖 {{ getIssuerAiStats(issuer)!.min === getIssuerAiStats(issuer)!.max ? getIssuerAiStats(issuer)!.avg.toFixed(0) : `${getIssuerAiStats(issuer)!.min}–${getIssuerAiStats(issuer)!.max}` }}
               </span>
             </template>
-            <small class="text-muted">{{ issuer.bond_count }} {{ bondWord(issuer.bond_count) }}</small>
-            <span class="ms-auto">
+            <span class="ms-auto" style="color: var(--nla-text)">
               <i :class="expanded.has(issuer.emitter_id) ? 'bi-chevron-up' : 'bi-chevron-down'" class="bi"></i>
             </span>
           </div>
+          <small class="text-muted d-block mt-1">{{ issuer.bond_count }} {{ bondWord(issuer.bond_count) }}</small>
         </div>
 
         <!-- Preview (collapsed) -->
@@ -47,15 +49,15 @@
             class="card-body py-2 border-top"
             style="background: var(--nla-bg-card)"
           >
-            <div class="d-flex justify-content-between align-items-start">
+            <div class="d-flex justify-content-between align-items-center">
               <div class="flex-grow-1 me-2" style="min-width: 0">
                 <!-- Name + SECID + badges -->
                 <div class="d-flex align-items-center flex-wrap gap-1 mb-1">
                   <strong class="me-1 text-truncate">{{ bond.shortname }}</strong>
                   <small class="text-muted flex-shrink-0 me-1">{{ bond.secid }}</small>
-                  <span v-if="bond.coupon_period" class="badge border text-muted" style="font-size: 9px">{{ formatPeriod(bond.coupon_period) }}</span>
-                  <span v-if="bond.is_float" class="badge bg-info" style="font-size: 9px">Флоатер</span>
-                  <span v-if="bond.is_indexed" class="badge bg-secondary" style="font-size: 9px">Индексируемая</span>
+                  <span v-if="bond.coupon_period" class="badge border text-muted" style="font-size: 10px">{{ formatPeriod(bond.coupon_period) }}</span>
+                  <span v-if="bond.is_float" class="badge bg-info" style="font-size: 10px">Флоатер</span>
+                  <span v-if="bond.is_indexed" class="badge bg-secondary" style="font-size: 10px">Индексируемая</span>
                 </div>
                 <!-- Financial metrics -->
                 <div class="issuer-bond-metrics mb-1">
@@ -82,7 +84,7 @@
                     <span class="date-label">Оферта:</span>
                     <template v-if="isValidDate(bond.putoptiondate || bond.buybackdate)">
                       <strong>{{ fmt.dateShort(bond.putoptiondate || bond.buybackdate) }}</strong>
-                      <small class="text-muted">({{ daysUntil(bond.putoptiondate || bond.buybackdate) }})</small>
+                      <small class="text-muted ms-1">({{ daysUntil(bond.putoptiondate || bond.buybackdate) }})</small>
                     </template>
                     <span v-else class="text-muted">—</span>
                   </div>
@@ -90,14 +92,18 @@
                     <span class="date-label">Колл-опцион:</span>
                     <template v-if="isValidDate(bond.calloptiondate)">
                       <strong>{{ fmt.dateShort(bond.calloptiondate) }}</strong>
-                      <small class="text-muted">({{ daysUntil(bond.calloptiondate) }})</small>
+                      <small class="text-muted ms-1">({{ daysUntil(bond.calloptiondate) }})</small>
                     </template>
                     <span v-else class="text-muted">—</span>
                   </div>
                   <div>
                     <span class="date-label">Погашение:</span>
                     <strong>{{ fmt.dateShort(bond.matdate) }}</strong>
-                    <small class="text-muted">({{ daysLabel(bond.days_to_maturity) }})</small>
+                    <small class="text-muted ms-1">({{ daysLabel(bond.days_to_maturity) }})</small>
+                  </div>
+                  <div v-if="getBondAiRating(bond.secid)">
+                    <span class="date-label">AI рейтинг:</span>
+                    <span class="badge fw-semibold" style="font-size: 11px" :style="fmt.aiRatingStyleSoft(getBondAiRating(bond.secid))">🤖 {{ getBondAiRating(bond.secid) }}</span>
                   </div>
                 </div>
               </div>
@@ -136,9 +142,11 @@ function getIssuerRating(emitterId: number): IssuerRatingResponse | null {
   return props.ratings[key] ?? null
 }
 
-function getIssuerAiStats(issuer: IssuerGroup): { total: number; avg: number } | null {
+function getIssuerAiStats(issuer: IssuerGroup): { total: number; avg: number; min: number; max: number } | null {
   if (!props.aiStats) return null
   let total = 0
+  let ratingMin = Infinity
+  let ratingMax = -Infinity
   let ratingSum = 0
   let ratingCount = 0
   for (const bond of issuer.bonds) {
@@ -148,11 +156,14 @@ function getIssuerAiStats(issuer: IssuerGroup): { total: number; avg: number } |
       if (stats.avg_rating > 0) {
         ratingSum += stats.avg_rating * stats.total
         ratingCount += stats.total
+        if (stats.avg_rating < ratingMin) ratingMin = stats.avg_rating
+        if (stats.avg_rating > ratingMax) ratingMax = stats.avg_rating
       }
     }
   }
   if (total === 0) return null
-  return { total, avg: ratingCount > 0 ? ratingSum / ratingCount : 0 }
+  const avg = ratingCount > 0 ? ratingSum / ratingCount : 0
+  return { total, avg, min: ratingMin === Infinity ? 0 : Math.round(ratingMin), max: ratingMax === -Infinity ? 0 : Math.round(ratingMax) }
 }
 
 function bondWord(n: number): string {
@@ -163,10 +174,7 @@ function bondWord(n: number): string {
   return 'облигаций'
 }
 
-function scoreBadgeColor(score: number): string {
-  const c: Record<number, string> = { 10: '#198754', 9: '#198754', 8: '#0dcaf0', 7: '#6edff6', 6: '#0d6efd', 5: '#6ea8fe', 4: '#ffc107', 3: '#fd7e14', 2: '#dc3545', 1: '#a70820', 0: '#000000' }
-  return c[score] ?? '#6c757d'
-}
+
 
 function daysUntil(dateStr: string): string {
   if (!dateStr) return '—'
@@ -197,4 +205,15 @@ function formatPeriod(days: number): string {
   if (days >= 355 && days <= 370) return '12 мес.'
   return days + ' дн.'
 }
+
+function getBondAiRating(secid: string): number | null {
+  if (!props.aiStats) return null
+  const stats = props.aiStats[secid]
+  if (!stats || stats.avg_rating <= 0) return null
+  return Math.round(stats.avg_rating)
+}
+
+
+
+
 </script>

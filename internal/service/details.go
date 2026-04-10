@@ -116,6 +116,13 @@ func (s *DetailsService) updateRatingsFromDohod(ctx context.Context, data *model
 		issuerName = issuerInfo.EmitterName
 	}
 
+	// Update emitter_name in bond_issuers if it was empty and we now have a name
+	if issuerInfo.EmitterName == "" && issuerName != "" {
+		if err := s.issuerRepo.UpdateEmitterName(ctx, emitterID, issuerName); err != nil {
+			log.Printf("WARN: update emitter name for %d: %v", emitterID, err)
+		}
+	}
+
 	var ratings []model.IssuerRating
 	if data.AKRA != "" {
 		ratings = append(ratings, model.IssuerRating{

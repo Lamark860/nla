@@ -22,62 +22,75 @@
     <template v-else-if="data">
       <!-- Header card -->
       <div class="mb-4">
-        <div class="row g-4 align-items-start">
+        <div class="row g-4 align-items-stretch">
           <!-- Left: name + badges + info row -->
           <div class="col-lg-7">
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-              <h1 class="h4 fw-bold mb-0">{{ data.shortname }}</h1>
-              <!-- Favorite toggle -->
-              <button
-                v-if="auth.isLoggedIn.value"
-                class="btn btn-link p-1"
-                :class="favorites.isFavorite(data.secid) ? 'text-warning' : 'text-muted'"
-                :title="favorites.isFavorite(data.secid) ? 'Убрать из избранного' : 'В избранное'"
-                @click="favorites.toggle(data.secid)"
-              >
-                <i :class="favorites.isFavorite(data.secid) ? 'bi-star-fill' : 'bi-star'" class="bi fs-5"></i>
-              </button>
-              <span v-if="data.trading_status === 'T'" class="badge bg-success">{{ data.boardname || 'Торги идут' }}</span>
-              <span v-if="data.trading_status === 'N'" class="badge bg-secondary">Торги не ведутся</span>
-              <span class="badge bg-light text-dark border font-monospace">{{ data.boardid || 'TQCB' }}</span>
-            </div>
-            <!-- Info row: ISIN | Код | Тип | Валюта -->
-            <div class="d-flex align-items-center gap-4 mt-2 flex-wrap small">
-              <div>
-                <span class="text-muted">ISIN</span>
-                <span class="ms-1 fw-semibold font-monospace">{{ data.isin }}</span>
+            <div class="card p-3 h-100">
+              <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+                <h1 class="h4 fw-bold mb-0">{{ data.shortname }}</h1>
+                <!-- Favorite toggle -->
+                <button
+                  v-if="auth.isLoggedIn.value"
+                  class="btn btn-link p-1"
+                  :class="favorites.isFavorite(data.secid) ? 'text-warning' : 'text-muted'"
+                  :title="favorites.isFavorite(data.secid) ? 'Убрать из избранного' : 'В избранное'"
+                  @click="favorites.toggle(data.secid)"
+                >
+                  <i :class="favorites.isFavorite(data.secid) ? 'bi-star-fill' : 'bi-star'" class="bi fs-5"></i>
+                </button>
+                <span v-if="data.trading_status === 'T'" class="badge bg-success">{{ data.boardname || 'Торги идут' }}</span>
+                <span v-if="data.trading_status === 'N'" class="badge bg-secondary">Торги не ведутся</span>
+                <span class="badge bg-light text-dark border font-monospace">{{ data.boardid || 'TQCB' }}</span>
               </div>
-              <div>
-                <span class="text-muted">Код</span>
-                <span class="ms-1 fw-semibold font-monospace">{{ data.secid }}</span>
+              <!-- Info row: ISIN | Код | Тип | Валюта | Ratings -->
+              <div class="d-flex align-items-center gap-4 flex-wrap small" style="color: var(--nla-text)">
+                <div>
+                  <span class="text-muted">ISIN</span>
+                  <span class="ms-1 fw-semibold font-monospace">{{ data.isin }}</span>
+                </div>
+                <div>
+                  <span class="text-muted">Код</span>
+                  <span class="ms-1 fw-semibold font-monospace">{{ data.secid }}</span>
+                </div>
+                <div v-if="data.regnumber">
+                  <span class="text-muted">Рег. №</span>
+                  <span class="ms-1 fw-semibold font-monospace">{{ data.regnumber }}</span>
+                </div>
+                <div>
+                  <span class="text-muted">Тип</span>
+                  <span class="ms-1 fw-semibold">{{ data.bond_category }}</span>
+                </div>
+                <div>
+                  <span class="text-muted">Валюта</span>
+                  <span class="ms-1 fw-semibold">{{ data.currencyid === 'SUR' ? 'RUB' : data.currencyid || 'RUB' }}</span>
+                </div>
+                <span
+                  v-if="analysisStats?.avg_rating"
+                  class="badge fw-semibold"
+                  :style="fmt.aiRatingStyleSoft(analysisStats.avg_rating)"
+                  :title="`AI: средний балл ${analysisStats.avg_rating.toFixed(1)}, анализов ${analysisStats.total}`"
+                >🤖 {{ Math.round(analysisStats.avg_rating) }}</span>
+                <!-- Inline credit ratings -->
+                <template v-if="issuerRating && issuerRating.ratings.length">
+                  <span
+                    v-for="r in issuerRating.ratings.filter(x => x.rating && x.rating !== 'NULL')"
+                    :key="r.agency"
+                    class="badge font-monospace"
+                    :style="fmt.ratingChipStyle(r.rating)"
+                    style="font-size: 11px; padding: 3px 7px"
+                  ><span style="font-weight:700">{{ r.rating }}</span> <span style="font-weight:400;opacity:0.7;font-family:var(--bs-body-font-family)">{{ r.agency }}</span></span>
+                </template>
+                <span v-else class="badge" style="font-size: 10px; background: rgba(108,117,125,0.08); color: var(--nla-text-muted)">Рейтинг не присвоен</span>
               </div>
-              <div v-if="data.regnumber">
-                <span class="text-muted">Рег. №</span>
-                <span class="ms-1 fw-semibold font-monospace">{{ data.regnumber }}</span>
-              </div>
-              <div>
-                <span class="text-muted">Тип</span>
-                <span class="ms-1 fw-semibold">{{ data.bond_category }}</span>
-              </div>
-              <div>
-                <span class="text-muted">Валюта</span>
-                <span class="ms-1 fw-semibold">{{ data.currencyid === 'SUR' ? 'RUB' : data.currencyid || 'RUB' }}</span>
-              </div>
-              <span
-                v-if="issuerRating"
-                class="badge font-monospace fw-bold"
-                :style="{ backgroundColor: creditScoreColor(issuerRating.score), color: '#fff' }"
-                :title="issuerRating.ratings.map(r => `${r.agency}: ${r.rating}`).join(', ')"
-              >{{ issuerRating.ratings[0]?.rating }}</span>
             </div>
           </div>
           <!-- Right: price card -->
           <div class="col-lg-5">
-            <div class="card p-4" style="border-left: 3px solid var(--nla-primary)">
+            <div class="card p-3 h-100" style="border-left: 3px solid var(--nla-primary)">
               <div class="d-flex justify-content-between align-items-start">
                 <div>
                   <div class="small text-muted mb-1">Текущая цена</div>
-                  <div class="h2 fw-bold font-monospace mb-0">{{ data.last != null ? fmt.percent(data.last) : '—' }}</div>
+                  <div class="h4 fw-bold font-monospace mb-0">{{ data.last != null ? fmt.percent(data.last) : '—' }}</div>
                   <div class="small font-monospace text-muted">{{ fmt.priceRub(data.price_rub) }}</div>
                   <div v-if="data.last_change_prcnt != null" :class="data.last_change_prcnt >= 0 ? 'text-success' : 'text-danger'" class="small fw-semibold mt-1">
                     {{ data.last_change_prcnt >= 0 ? '+' : '' }}{{ data.last_change != null ? data.last_change.toFixed(2) : '0' }} ({{ data.last_change_prcnt >= 0 ? '+' : '' }}{{ data.last_change_prcnt.toFixed(2) }}%)
@@ -85,7 +98,7 @@
                 </div>
                 <div class="text-end">
                   <div class="small text-muted mb-1">Доходность</div>
-                  <div class="h3 fw-bold text-positive font-monospace mb-0">{{ fmt.percent(data.yield) }}</div>
+                  <div class="h5 fw-bold text-positive font-monospace mb-0">{{ fmt.percent(data.yield) }}</div>
                   <div class="small text-muted mt-1">до {{ fmt.date(data.matdate) }}</div>
                 </div>
               </div>
@@ -115,7 +128,7 @@
         <BondYieldsTab v-else-if="activeTab === 'yields'" :bond="data" />
         <BondHistoryTab v-else-if="activeTab === 'history'" :history="history ?? []" :bond="data" />
         <BondDetailsTab v-else-if="activeTab === 'details'" :bond="data" :dohod="dohod" :dohod-loading="dohodLoading" />
-        <BondAiTab v-else-if="activeTab === 'ai'" :secid="secid" :bond="data" :dohod="dohod" :analyses="analyses" :job-id="currentJobId" @analysis-complete="onAnalysisComplete" @start-analysis="startAnalysis" />
+        <BondAiTab v-else-if="activeTab === 'ai'" :secid="secid" :bond="data" :dohod="dohod" :analyses="analyses" :job-id="currentJobId" @analysis-complete="onAnalysisComplete" @analysis-deleted="refreshAnalyses" @start-analysis="startAnalysis" />
         <BondExternalTab v-else-if="activeTab === 'external'" :secid="secid" />
       </div>
     </template>
@@ -229,13 +242,9 @@ function onAnalysisComplete() {
   currentJobId.value = null
 }
 
-function creditScoreColor(score: number): string {
-  if (score >= 9) return '#198754'
-  if (score >= 7) return '#0dcaf0'
-  if (score >= 5) return '#0d6efd'
-  if (score >= 3) return '#fd7e14'
-  return '#dc3545'
-}
+
+
+
 
 useHead({ title: computed(() => data.value ? `${data.value.shortname} — NLA` : 'Загрузка…') })
 </script>

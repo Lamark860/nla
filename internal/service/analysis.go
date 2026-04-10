@@ -84,13 +84,18 @@ func (s *AnalysisService) GetByID(ctx context.Context, id string) (*model.BondAn
 	return s.repo.GetByID(ctx, id)
 }
 
+// Delete removes an analysis by ID
+func (s *AnalysisService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
+}
+
 // GetStats returns aggregate stats for a bond
 func (s *AnalysisService) GetStats(ctx context.Context, secid string) (*model.AnalysisStats, error) {
 	return s.repo.GetStats(ctx, secid)
 }
 
 // GetLatestRatings batch-loads latest ratings for multiple SECIDs
-func (s *AnalysisService) GetLatestRatings(ctx context.Context, secids []string) (map[string]int, error) {
+func (s *AnalysisService) GetLatestRatings(ctx context.Context, secids []string) (map[string]float64, error) {
 	return s.repo.GetLatestRatings(ctx, secids)
 }
 
@@ -110,11 +115,11 @@ func (s *AnalysisService) loadPrompt() (string, error) {
 // ParseRatingFromResponse extracts rating 0-100 from AI response text.
 // Priority: [RATING:XX] > "Итоговая оценка" XX/100 > "Итоговая" XX баллов >
 // "Оценка" XX/100 > "Оценка" XX баллов > **XX/100** > any XX/100
-func ParseRatingFromResponse(text string) *int {
-	// 1. Machine-readable tag [RATING:XX]
-	re1 := regexp.MustCompile(`\[RATING:\s*(\d{1,3})\s*\]`)
+func ParseRatingFromResponse(text string) *float64 {
+	// 1. Machine-readable tag [RATING:XX] or [RATING:XX.X]
+	re1 := regexp.MustCompile(`\[RATING:\s*(\d{1,3}(?:\.\d+)?)\s*\]`)
 	if m := re1.FindStringSubmatch(text); m != nil {
-		if v := parseAndValidate(m[1]); v != nil {
+		if v := parseFloatRating(m[1]); v != nil {
 			return v
 		}
 	}
@@ -122,7 +127,7 @@ func ParseRatingFromResponse(text string) *int {
 	// 2. "Итоговая оценка" block with XX/100
 	re2 := regexp.MustCompile(`(?i)[ии]тогов\w*\s+оценк\w*[^\n]{0,80}?(\d{1,3})\s*[/\\]\s*100`)
 	if m := re2.FindStringSubmatch(text); m != nil {
-		if v := parseAndValidate(m[1]); v != nil {
+		if v := parseIntRating(m[1]); v != nil {
 			return v
 		}
 	}
@@ -130,7 +135,7 @@ func ParseRatingFromResponse(text string) *int {
 	// 3. "Итоговая оценка: XX баллов"
 	re3 := regexp.MustCompile(`(?i)[ии]тогов\w*\s+оценк\w*[^\n]{0,80}?(\d{1,3})\s*балл`)
 	if m := re3.FindStringSubmatch(text); m != nil {
-		if v := parseAndValidate(m[1]); v != nil {
+		if v := parseIntRating(m[1]); v != nil {
 			return v
 		}
 	}
@@ -138,7 +143,7 @@ func ParseRatingFromResponse(text string) *int {
 	// 4. "Оценка: XX/100" (without "Итоговая")
 	re4 := regexp.MustCompile(`(?i)[оо]ценк\w*\s*:?\s*[^\n]{0,40}?(\d{1,3})\s*[/\\]\s*100`)
 	if m := re4.FindStringSubmatch(text); m != nil {
-		if v := parseAndValidate(m[1]); v != nil {
+		if v := parseIntRating(m[1]); v != nil {
 			return v
 		}
 	}
@@ -146,7 +151,7 @@ func ParseRatingFromResponse(text string) *int {
 	// 5. "Оценка: XX баллов"
 	re5 := regexp.MustCompile(`(?i)[оо]ценк\w*\s*:?\s*[^\n]{0,40}?(\d{1,3})\s*балл`)
 	if m := re5.FindStringSubmatch(text); m != nil {
-		if v := parseAndValidate(m[1]); v != nil {
+		if v := parseIntRating(m[1]); v != nil {
 			return v
 		}
 	}
@@ -154,7 +159,7 @@ func ParseRatingFromResponse(text string) *int {
 	// 6. Any **XX/100** (bold markdown)
 	re6 := regexp.MustCompile(`\*\*\s*(\d{1,3})\s*[/\\]\s*100\s*\*\*`)
 	if m := re6.FindStringSubmatch(text); m != nil {
-		if v := parseAndValidate(m[1]); v != nil {
+		if v := parseIntRating(m[1]); v != nil {
 			return v
 		}
 	}
@@ -164,7 +169,7 @@ func ParseRatingFromResponse(text string) *int {
 	matches := re7.FindAllStringSubmatch(text, -1)
 	if len(matches) > 0 {
 		last := matches[len(matches)-1]
-		if v := parseAndValidate(last[1]); v != nil {
+		if v := parseIntRating(last[1]); v != nil {
 			return v
 		}
 	}
@@ -172,13 +177,27 @@ func ParseRatingFromResponse(text string) *int {
 	return nil
 }
 
-func parseAndValidate(s string) *int {
+func parseIntRating(s string) *float64 {
 	v, err := strconv.Atoi(s)
 	if err != nil {
 		return nil
 	}
 	if v >= 0 && v <= 100 {
-		return &v
+		f := float64(v)
+		return &f
+	}
+	return nil
+}
+
+func parseFloatRating(s string) *float64 {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return nil
+	}
+	// Round to 1 decimal place
+	f = math.Round(f*10) / 10
+	if f >= 0 && f <= 100 {
+		return &f
 	}
 	return nil
 }

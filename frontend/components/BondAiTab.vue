@@ -35,18 +35,17 @@
 
           <!-- Submit button -->
           <button class="btn btn-primary d-inline-flex align-items-center gap-2" @click="$emit('startAnalysis')" :disabled="!!jobId">
-            <span v-if="jobId" class="spinner-border spinner-border-sm" role="status"></span>
-            <i v-else class="bi bi-send"></i>
-            {{ jobId ? 'Анализ идёт…' : 'Отправить в ИИ' }}
+            <i class="bi bi-send"></i>
+            Отправить в ИИ
           </button>
         </div>
       </div>
 
       <!-- Job polling status -->
-      <div v-if="jobId && jobStatus && jobStatus.status !== 'done'" class="card p-4 mb-4">
+      <div v-if="jobId && jobStatus && jobStatus.status !== 'done'" class="card p-4 mb-4" style="background: var(--nla-bg-card); color: var(--nla-text)">
         <div class="d-flex align-items-center gap-3">
           <div v-if="jobStatus.status === 'error'" class="text-danger"><i class="bi bi-x-circle fs-4"></i></div>
-          <div v-else class="spinner-border text-primary" role="status"></div>
+          <div v-else class="spinner-border" style="color: var(--nla-primary)" role="status"></div>
           <div>
             <p class="fw-semibold mb-0">
               {{ jobStatus.status === 'pending' ? 'В очереди…' : jobStatus.status === 'running' ? 'AI анализирует…' : 'Ошибка анализа' }}
@@ -97,7 +96,10 @@
                 <RatingBadge :rating="a.rating" size="sm" />
                 <span class="small text-muted font-monospace">{{ fmt.date(a.timestamp) }}</span>
               </div>
-              <i class="bi bi-chevron-right small text-muted"></i>
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-trash small text-muted" style="cursor: pointer" title="Удалить анализ" @click.stop="deleteAnalysis(a.id)"></i>
+                <i class="bi bi-chevron-right small text-muted"></i>
+              </div>
             </div>
             <p class="small text-muted mt-1 mb-0 text-truncate">{{ plainPreview(a.response) }}</p>
           </button>
@@ -116,7 +118,10 @@
             <div class="small text-muted mt-1">Всего анализов</div>
           </div>
           <div class="col-6">
-            <div class="h3 fw-bold font-monospace mb-0">{{ avgRating }}</div>
+            <div class="h3 fw-bold font-monospace mb-0">
+              <span v-if="avgRating !== '—'" class="badge" :style="avgRatingStyle">{{ avgRating }}</span>
+              <span v-else>—</span>
+            </div>
             <div class="small text-muted mt-1">Средний рейтинг</div>
           </div>
         </div>
@@ -136,7 +141,7 @@ const props = defineProps<{
   jobId: string | null
 }>()
 
-const emit = defineEmits<{ analysisComplete: []; startAnalysis: [] }>()
+const emit = defineEmits<{ analysisComplete: []; startAnalysis: []; analysisDeleted: [] }>()
 
 const api = useApi()
 const fmt = useFormat()
@@ -179,6 +184,11 @@ const avgRating = computed(() => {
   return Math.round(sum / props.analyses.length)
 })
 
+const avgRatingStyle = computed(() => {
+  const base = fmt.aiRatingStyle(typeof avgRating.value === 'number' ? avgRating.value : null)
+  return { ...base, fontSize: '1.2rem' }
+})
+
 const expandedAnalysis = computed(() => {
   if (!expandedId.value || !props.analyses) return null
   return props.analyses.find(a => a.id === expandedId.value) ?? null
@@ -207,14 +217,74 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
 
 function plainPreview(text: string): string { return text.replace(/[#*_`\[\]|]/g, '').trim() }
 
+async function deleteAnalysis(id: string) {
+  if (!confirm('Удалить этот анализ?')) return
+  try {
+    await api.deleteAnalysis(id)
+    if (expandedId.value === id) expandedId.value = null
+    emit('analysisDeleted')
+  } catch (e: any) {
+    alert('Ошибка: ' + (e.message || 'Не удалось удалить'))
+  }
+}
+
 function renderMarkdown(md: string): string {
-  return md
+  // Process tables first (before \n→<br>)
+  const lines = md.split('\n')
+  const result: string[] = []
+  let i = 0
+
+  while (i < lines.length) {
+    // Detect table: line with pipes
+    if (/^\|(.+)\|$/.test(lines[i].trim())) {
+      const tableLines: string[] = []
+      while (i < lines.length && /^\|(.+)\|$/.test(lines[i].trim())) {
+        tableLines.push(lines[i].trim())
+        i++
+      }
+      if (tableLines.length >= 2) {
+        result.push(renderTable(tableLines))
+      } else {
+        result.push(...tableLines)
+      }
+    } else {
+      result.push(lines[i])
+      i++
+    }
+  }
+
+  return result.join('\n')
     .replace(/^### (.+)$/gm, '<h4 class="fw-semibold mt-3 mb-2">$1</h4>')
     .replace(/^## (.+)$/gm, '<h3 class="fw-semibold mt-4 mb-2">$1</h3>')
     .replace(/^# (.+)$/gm, '<h2 class="fw-bold mt-4 mb-3">$1</h2>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/\n/g, '<br>')
-    .replace(/\[RATING:(\d+)\]/g, '<span class="badge bg-primary">Оценка: $1/100</span>')
+    .replace(/\[RATING:(\d+\.?\d*)\]/g, '<span class="badge bg-primary">Оценка: $1/100</span>')
+}
+
+function renderTable(lines: string[]): string {
+  const parseRow = (line: string) =>
+    line.split('|').slice(1, -1).map(c => c.trim())
+
+  const headers = parseRow(lines[0])
+  // Skip separator line (|---|---|)
+  const startRow = /^[\s|:-]+$/.test(lines[1]) ? 2 : 1
+
+  let html = '<div class="table-responsive my-3"><table class="table table-sm table-bordered mb-0" style="color: var(--nla-text)"><thead><tr>'
+  for (const h of headers) {
+    html += `<th class="small fw-semibold" style="background: var(--nla-bg); white-space: nowrap">${h}</th>`
+  }
+  html += '</tr></thead><tbody>'
+  for (let r = startRow; r < lines.length; r++) {
+    const cells = parseRow(lines[r])
+    html += '<tr>'
+    for (const c of cells) {
+      html += `<td class="small">${c}</td>`
+    }
+    html += '</tr>'
+  }
+  html += '</tbody></table></div>'
+  return html
 }
 </script>

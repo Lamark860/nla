@@ -56,6 +56,17 @@ func (r *AnalysisRepo) GetByID(ctx context.Context, id string) (*model.BondAnaly
 	return &a, nil
 }
 
+func (r *AnalysisRepo) Delete(ctx context.Context, id string) error {
+	res, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
+	if err != nil {
+		return fmt.Errorf("delete analysis: %w", err)
+	}
+	if res.DeletedCount == 0 {
+		return fmt.Errorf("analysis not found")
+	}
+	return nil
+}
+
 func (r *AnalysisRepo) GetStats(ctx context.Context, secid string) (*model.AnalysisStats, error) {
 	analyses, err := r.GetBySecid(ctx, secid)
 	if err != nil {
@@ -69,7 +80,7 @@ func (r *AnalysisRepo) GetStats(ctx context.Context, secid string) (*model.Analy
 		count := 0
 		for _, a := range analyses {
 			if a.Rating != nil {
-				sum += float64(*a.Rating)
+				sum += *a.Rating
 				count++
 			}
 		}
@@ -81,9 +92,9 @@ func (r *AnalysisRepo) GetStats(ctx context.Context, secid string) (*model.Analy
 }
 
 // GetLatestRatings returns the most recent rating per SECID (batch)
-func (r *AnalysisRepo) GetLatestRatings(ctx context.Context, secids []string) (map[string]int, error) {
+func (r *AnalysisRepo) GetLatestRatings(ctx context.Context, secids []string) (map[string]float64, error) {
 	if len(secids) == 0 {
-		return map[string]int{}, nil
+		return map[string]float64{}, nil
 	}
 
 	pipeline := mongo.Pipeline{
@@ -101,11 +112,11 @@ func (r *AnalysisRepo) GetLatestRatings(ctx context.Context, secids []string) (m
 	}
 	defer cursor.Close(ctx)
 
-	result := make(map[string]int)
+	result := make(map[string]float64)
 	for cursor.Next(ctx) {
 		var doc struct {
-			SECID  string `bson:"_id"`
-			Rating int    `bson:"rating"`
+			SECID  string  `bson:"_id"`
+			Rating float64 `bson:"rating"`
 		}
 		if cursor.Decode(&doc) == nil {
 			result[doc.SECID] = doc.Rating

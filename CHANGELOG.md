@@ -1,5 +1,40 @@
 # CHANGELOG — NLA (ASH → NLA Migration)
 
+## v0.9.0 (2026-04-10) — Issuer Auto-Sync, Ratings & AI Improvements
+
+### Issuer Auto-Sync
+- **`SyncMissingIssuers()`** — при старте API фоновая горутина сверяет бонды MOEX с `bond_issuers`, для недостающих запрашивает `EMITTER_ID` через MOEX description API (200ms delay, 2 min timeout)
+- **`IssuerRepo.Upsert()`** — создание/обновление записей `bond_issuers` по secid
+- **`IssuerRepo.GetAllSecids()`** — быстрая загрузка всех существующих secid для сверки
+- **`IssuerRepo.UpdateEmitterName()`** — обновление имени эмитента для всех бондов по `emitter_id`
+- **Emitter name backfill** — `updateRatingsFromDohod()` теперь автоматически обновляет `emitter_name` в `bond_issuers` при получении имени из dohod.ru
+
+### AI Analysis
+- **Float rating** — `BondAnalysis.Rating` изменён с `*int` на `*float64` (поддержка `[RATING:77.5]`)
+- **`parseFloatRating()`** — парсинг десятичных рейтингов, округление до 1 знака
+- **Delete analysis** — `DELETE /api/v1/analyses/{id}` (handler + service + mongo repo)
+- **Markdown tables** — `renderMarkdown()` в BondAiTab.vue теперь парсит `| col | col |` формат в `<table>` с Bootstrap-стилями и dark mode
+
+### Queue Reliability
+- **`ResetStaleJobs()`** — при старте worker сбрасывает "running" задачи старше 3 минут в "pending"
+
+### Frontend
+- **Unified rating colors** — `aiRatingStyle()`, `aiRatingStyleSoft()`, `issuerRatingBg()` в useFormat.ts
+- **AI rating badge** на странице детали облигации (из `analysisStats`)
+- **Markdown tables** в Chat с dark mode (`color: var(--nla-text)`)
+- **Readability** — `--nla-text-muted` light: `#64748b`, dark: `#8b9bb5`; `--nla-bg` light: `#f8f9fb`
+- **Rating colors** — score 8: `#17a2b8`, score 7: `#5bc0de`
+
+### Credit Ratings
+- Agency ДОХОДЪ добавлен (внутренний рейтинг dohod.ru credit_rating)
+- **310 из 359** эмитентов без имён получили имена через backfill из `issuer_ratings`
+
+### Тесты
+- 61 тест (включая 21 subtest rating parser с decimal), все проходят
+- Новые тесты не требуются — добавленный код (IssuerRepo, SyncMissingIssuers) зависит от MongoDB/MOEX и тестируется только интеграционно
+
+---
+
 ## Оценка объёма работ
 
 **Общий прогресс: ~50% от полной паритетности с ASH**
@@ -17,7 +52,7 @@
 | Избранное | ~90% | PostgreSQL + API + фронтенд. В ASH нет — NLA опережает |
 | Инструменты | 0% | Нет (в ASH есть /tools) |
 | Homepage | 0% | Нет hero-секции (в ASH есть feature cards + quick links). NLA сразу показывает BondTable |
-| Тесты | ~50% | 48 тестов (auth, middleware, handler, rating parser). Нет тестов на bond service |
+| Тесты | ~50% | 61 тестов (auth, middleware, handler, rating parser incl. float). Нет интеграционных тестов на bond/issuer service |
 
 ### Что есть в NLA, но нет в ASH
 - Auth UI (login/register/logout)

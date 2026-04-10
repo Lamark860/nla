@@ -120,6 +120,26 @@ func main() {
 	w := queue.NewWorker(queueService, analysisService, bondService, detailsService)
 	go w.Run(workerCtx)
 
+	// Sync missing bond_issuers and credit ratings in background
+	go func() {
+		syncCtx, syncCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer syncCancel()
+		if n, err := bondService.SyncMissingIssuers(syncCtx); err != nil {
+			log.Printf("WARNING: issuer sync error: %v", err)
+		} else if n > 0 {
+			log.Printf("Synced %d missing bond_issuers", n)
+		}
+
+		// After issuers are synced, fill missing ratings from MOEX CCI
+		ratingCtx, ratingCancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		defer ratingCancel()
+		if n, err := bondService.SyncMissingRatingsFromMoex(ratingCtx); err != nil {
+			log.Printf("WARNING: MOEX rating sync error: %v", err)
+		} else if n > 0 {
+			log.Printf("Synced ratings for %d emitters from MOEX CCI", n)
+		}
+	}()
+
 	// Server
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

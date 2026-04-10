@@ -112,6 +112,26 @@ func (r *QueueRepo) FetchPending(ctx context.Context) (*model.QueueJob, error) {
 	return &job, nil
 }
 
+// ResetStaleJobs resets jobs stuck in "running" for longer than the given duration back to "pending".
+func (r *QueueRepo) ResetStaleJobs(ctx context.Context, staleAfter time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-staleAfter)
+	filter := bson.M{
+		"status":     model.JobStatusRunning,
+		"updated_at": bson.M{"$lt": cutoff},
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"status":     model.JobStatusPending,
+			"updated_at": time.Now(),
+		},
+	}
+	res, err := r.col.UpdateMany(ctx, filter, update)
+	if err != nil {
+		return 0, fmt.Errorf("reset stale jobs: %w", err)
+	}
+	return res.ModifiedCount, nil
+}
+
 // GetStats returns counts by status
 func (r *QueueRepo) GetStats(ctx context.Context) (map[string]int, error) {
 	pipeline := mongo.Pipeline{

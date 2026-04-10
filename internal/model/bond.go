@@ -192,7 +192,7 @@ type BondAnalysis struct {
 	ID         string    `json:"id" bson:"_id,omitempty"`
 	SECID      string    `json:"secid" bson:"secid"`
 	Response   string    `json:"response" bson:"response"`
-	Rating     *int      `json:"rating" bson:"rating"`
+	Rating     *float64  `json:"rating" bson:"rating"`
 	JSONData   any       `json:"json_data,omitempty" bson:"json_data,omitempty"`
 	CustomJSON any       `json:"custom_json,omitempty" bson:"custom_json,omitempty"`
 	Timestamp  time.Time `json:"timestamp" bson:"timestamp"`
