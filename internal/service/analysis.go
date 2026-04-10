@@ -94,6 +94,11 @@ func (s *AnalysisService) GetLatestRatings(ctx context.Context, secids []string)
 	return s.repo.GetLatestRatings(ctx, secids)
 }
 
+// GetBulkStats returns analysis stats for all analyzed bonds
+func (s *AnalysisService) GetBulkStats(ctx context.Context) (map[string]model.AnalysisStats, error) {
+	return s.repo.GetBulkStats(ctx)
+}
+
 func (s *AnalysisService) loadPrompt() (string, error) {
 	data, err := os.ReadFile(s.promptPath)
 	if err != nil {

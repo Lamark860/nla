@@ -32,6 +32,7 @@ const (
 	JobTypeParseBond    = "parse_bond"
 	JobTypeParseEmitter = "parse_emitter"
 	JobTypeSyncIssuer   = "sync_issuer"
+	JobTypeParseDohod   = "parse_dohod"
 )
 
 // CreateJobRequest for POST /bonds/:secid/analyze

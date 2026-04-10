@@ -24,10 +24,11 @@ type BondService struct {
 	moex       *moex.Client
 	redis      *redis.Client
 	issuerRepo *mongorepo.IssuerRepo
+	ratingRepo *mongorepo.RatingRepo
 }
 
-func NewBondService(moexClient *moex.Client, rdb *redis.Client, issuerRepo *mongorepo.IssuerRepo) *BondService {
-	return &BondService{moex: moexClient, redis: rdb, issuerRepo: issuerRepo}
+func NewBondService(moexClient *moex.Client, rdb *redis.Client, issuerRepo *mongorepo.IssuerRepo, ratingRepo *mongorepo.RatingRepo) *BondService {
+	return &BondService{moex: moexClient, redis: rdb, issuerRepo: issuerRepo, ratingRepo: ratingRepo}
 }
 
 // GetBondsPaginated returns sorted and paginated bonds
@@ -75,13 +76,23 @@ func (s *BondService) GetBondDetail(ctx context.Context, secid string) (*model.B
 
 	securities := extractRows(raw, "securities")
 	marketdata := extractRows(raw, "marketdata")
+	marketdataYields := extractRows(raw, "marketdata_yields")
 
 	if len(securities) == 0 {
 		return nil, fmt.Errorf("bond %s not found", secid)
 	}
 
 	bond := parseBond(securities[0], safeFirst(marketdata))
+	mergeYieldData(&bond, safeFirst(marketdataYields))
 	calculateFields(&bond)
+
+	// Resolve emitter_id from bond_issuers collection
+	if s.issuerRepo != nil {
+		if issuer, err := s.issuerRepo.GetBySecid(ctx, secid); err == nil && issuer != nil && issuer.EmitterID > 0 {
+			bond.EmitterID = &issuer.EmitterID
+			bond.EmitterName = issuer.EmitterName
+		}
+	}
 
 	if data, err := json.Marshal(bond); err == nil {
 		s.redis.Set(ctx, cacheKey, data, bondsCacheTTL)
@@ -240,8 +251,24 @@ func (s *BondService) GetBondsGroupedByIssuer(ctx context.Context, monthlyOnly b
 		})
 	}
 
-	// Sort by bond count desc (highest first)
+	// Sort by credit rating (highest first), then bond count
+	// Build rating score map by emitter_id (direct lookup)
+	ratingScoreMap := make(map[int64]int)
+	if s.ratingRepo != nil {
+		allRatings, _ := s.ratingRepo.GetAll(ctx)
+		for _, r := range allRatings {
+			if r.Score > ratingScoreMap[r.EmitterID] {
+				ratingScoreMap[r.EmitterID] = r.Score
+			}
+		}
+	}
+
 	sort.Slice(result, func(i, j int) bool {
+		si := ratingScoreMap[result[i].EmitterID]
+		sj := ratingScoreMap[result[j].EmitterID]
+		if si != sj {
+			return si > sj // Higher rating first
+		}
 		return result[i].BondCount > result[j].BondCount
 	})
 
@@ -255,6 +282,41 @@ func (s *BondService) GetBondsGroupedByIssuer(ctx context.Context, monthlyOnly b
 		TotalIssuers: len(result),
 		TotalBonds:   totalBonds,
 	}, nil
+}
+
+// ClearCache removes all bond-related keys from Redis
+func (s *BondService) ClearCache(ctx context.Context) (int64, error) {
+	var total int64
+
+	// Delete list cache
+	if n, _ := s.redis.Del(ctx, bondsCacheKey).Result(); n > 0 {
+		total += n
+	}
+
+	// Delete individual bond caches (bonds:SECID)
+	var cursor uint64
+	for {
+		keys, nextCursor, err := s.redis.Scan(ctx, cursor, bondCachePrefix+"*", 100).Result()
+		if err != nil {
+			break
+		}
+		if len(keys) > 0 {
+			if n, _ := s.redis.Del(ctx, keys...).Result(); n > 0 {
+				total += n
+			}
+		}
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return total, nil
+}
+
+// ToggleIssuer hides/shows all bonds of an emitter
+func (s *BondService) ToggleIssuer(ctx context.Context, emitterID int64, hidden bool) (int64, error) {
+	return s.issuerRepo.ToggleHidden(ctx, emitterID, hidden)
 }
 
 // getAllBonds loads all bonds from cache or MOEX
@@ -405,6 +467,8 @@ func parseBond(sec map[string]any, md map[string]any) model.Bond {
 
 // calculateFields computes derived values
 func calculateFields(b *model.Bond) {
+	now := time.Now()
+
 	// Price in RUB
 	if b.Last != nil && b.FaceValue > 0 {
 		rub := (*b.Last / 100) * b.FaceValue
@@ -417,29 +481,69 @@ func calculateFields(b *model.Bond) {
 		b.ValueTodayRUB = &val
 	}
 
-	// Days to maturity
+	// Days to maturity + years
 	if b.MatDate != "" {
 		if matDate, err := time.Parse("2006-01-02", b.MatDate); err == nil {
 			days := int(time.Until(matDate).Hours() / 24)
 			b.DaysToMaturity = &days
+			years := float64(days) / 365.25
+			b.YearsToMaturity = &years
+		}
+	}
+
+	// Days to put option
+	if b.PutOptionDate != "" {
+		if d, err := time.Parse("2006-01-02", b.PutOptionDate); err == nil {
+			days := int(d.Sub(now).Hours() / 24)
+			b.DaysToPut = &days
+			b.IsNearOffer = days >= 0 && days <= 90
+		}
+	}
+
+	// Days to call option
+	if b.CallOptionDate != "" {
+		if d, err := time.Parse("2006-01-02", b.CallOptionDate); err == nil {
+			days := int(d.Sub(now).Hours() / 24)
+			b.DaysToCall = &days
+		}
+	}
+
+	// Days to next coupon
+	if b.NextCoupon != "" {
+		if d, err := time.Parse("2006-01-02", b.NextCoupon); err == nil {
+			days := int(d.Sub(now).Hours() / 24)
+			b.DaysToNextCoupon = &days
 		}
 	}
 
 	// Bond type flags
 	bt := strings.ToLower(b.BondType)
-	b.IsFloat = strings.Contains(bt, "флоатер") || strings.Contains(bt, "float")
-	b.IsIndexed = strings.Contains(bt, "индексируемые") || b.BondType == "6"
+	btnLower := strings.ToLower(b.BondTypeName)
+	b.IsFloat = strings.Contains(btnLower, "флоатер") || strings.Contains(bt, "float") || strings.Contains(btnLower, "float")
+	b.IsIndexed = strings.Contains(btnLower, "индексируемые") || b.BondType == "6"
+	b.HasNoFixedCoupon = b.IsFloat || b.IsIndexed
 
-	// Category
-	switch {
-	case strings.Contains(bt, "офз"):
+	// Category — by BOARDID (like ASH), fallback to bond type string
+	switch b.BoardID {
+	case "TQOB": // ОФЗ
 		b.BondCategory = "ОФЗ"
-	case strings.Contains(bt, "субфед"):
-		b.BondCategory = "Субфедеральная"
-	case strings.Contains(bt, "муницип"):
-		b.BondCategory = "Муниципальная"
-	default:
+	case "TQCB": // Корпоративные
 		b.BondCategory = "Корпоративная"
+	case "TQIR": // Ипотечные
+		b.BondCategory = "Ипотечная"
+	default:
+		switch {
+		case b.CurrencyID == "USD" || b.FaceUnit == "USD":
+			b.BondCategory = "Еврооблигация"
+		case strings.Contains(btnLower, "субфед"):
+			b.BondCategory = "Субфедеральная"
+		case strings.Contains(btnLower, "муницип"):
+			b.BondCategory = "Муниципальная"
+		case strings.Contains(btnLower, "офз") || strings.Contains(bt, "офз"):
+			b.BondCategory = "ОФЗ"
+		default:
+			b.BondCategory = "Корпоративная"
+		}
 	}
 
 	// Coupon display
@@ -449,6 +553,126 @@ func calculateFields(b *model.Bond) {
 	} else if b.CouponValue > 0 && b.FaceValue > 0 {
 		cd := (b.CouponValue / b.FaceValue) * 100
 		b.CouponDisplay = &cd
+	}
+
+	// Current yield
+	if b.CouponPercent > 0 && b.Last != nil && *b.Last > 0 {
+		cy := (b.CouponPercent / *b.Last) * 100
+		b.CurrentYield = &cy
+	}
+
+	// Modified duration
+	if b.Duration != nil && b.Yield != nil && *b.Yield > 0 {
+		md := float64(*b.Duration) / (1 + *b.Yield/100)
+		b.ModifiedDuration = &md
+	}
+
+	// Bid/Offer spread
+	if b.Bid != nil && b.Offer != nil {
+		abs := *b.Offer - *b.Bid
+		b.SpreadAbsolute = &abs
+		if *b.Bid > 0 {
+			pct := abs / *b.Bid * 100
+			b.SpreadPercent = &pct
+		}
+	}
+
+	// Mid price
+	if b.Bid != nil && b.Offer != nil {
+		mid := (*b.Bid + *b.Offer) / 2
+		b.MidPricePct = &mid
+		if b.FaceValue > 0 {
+			midRub := (mid / 100) * b.FaceValue
+			b.MidPriceRUB = &midRub
+		}
+	}
+
+	// Bid/Offer in RUB
+	if b.Bid != nil && b.FaceValue > 0 {
+		bidRub := (*b.Bid / 100) * b.FaceValue
+		b.BidRUB = &bidRub
+	}
+	if b.Offer != nil && b.FaceValue > 0 {
+		offerRub := (*b.Offer / 100) * b.FaceValue
+		b.OfferRUB = &offerRub
+	}
+
+	// Average trade size
+	if b.NumTrades != nil && *b.NumTrades > 0 && b.ValueTodayRUB != nil {
+		avg := *b.ValueTodayRUB / float64(*b.NumTrades)
+		b.AvgTradeSize = &avg
+	}
+
+	// Total depth
+	if b.BidDepth != nil && b.OfferDepth != nil {
+		td := *b.BidDepth + *b.OfferDepth
+		b.TotalDepth = &td
+	}
+
+	// Bid/offer ratio
+	if b.BidDepth != nil && b.OfferDepth != nil && *b.BidDepth > 0 {
+		ratio := float64(*b.OfferDepth) / float64(*b.BidDepth)
+		b.BidOfferRatio = &ratio
+	}
+
+	// Accrued interest as %
+	if b.AccruedInt > 0 && b.FaceValue > 0 {
+		pct := b.AccruedInt / b.FaceValue * 100
+		b.AccruedIntPct = &pct
+	}
+
+	// Life progress (0-100%)
+	if b.SettleDate != "" && b.MatDate != "" {
+		if settle, err := time.Parse("2006-01-02", b.SettleDate); err == nil {
+			if mat, err := time.Parse("2006-01-02", b.MatDate); err == nil {
+				total := mat.Sub(settle).Hours()
+				elapsed := now.Sub(settle).Hours()
+				if total > 0 {
+					prog := elapsed / total * 100
+					if prog < 0 {
+						prog = 0
+					}
+					if prog > 100 {
+						prog = 100
+					}
+					b.LifeProgress = &prog
+				}
+			}
+		}
+	}
+
+	// Trading status text
+	switch b.TradingStatus {
+	case "T":
+		b.TradingStatusTxt = "Торги идут"
+	case "N":
+		b.TradingStatusTxt = "Не ведутся"
+	case "S":
+		b.TradingStatusTxt = "Приостановлены"
+	default:
+		b.TradingStatusTxt = "Неизвестно"
+	}
+
+	// Risk category
+	b.RiskCategory = calcRiskCategory(b)
+}
+
+// calcRiskCategory determines risk level based on available data
+func calcRiskCategory(b *model.Bond) string {
+	y := safeFloat(b.Yield)
+	dtm := safeInt(b.DaysToMaturity)
+
+	switch {
+	case y > 25 || dtm <= 0:
+		return "toxic"
+	case y > 18:
+		return "high"
+	case y > 14:
+		return "medium-high"
+	case y > 10:
+		return "medium"
+	default:
+		return "low"
 	}
 }
 
@@ -473,7 +697,7 @@ func sortBonds(bonds []model.Bond, sortBy string) {
 		})
 	case "volume_desc":
 		sort.Slice(bonds, func(i, j int) bool {
-			return bonds[i].VolToday > bonds[j].VolToday
+			return safeFloat(bonds[i].ValueTodayRUB) > safeFloat(bonds[j].ValueTodayRUB)
 		})
 	case "coupon_desc":
 		sort.Slice(bonds, func(i, j int) bool {
@@ -482,6 +706,14 @@ func sortBonds(bonds []model.Bond, sortBy string) {
 	case "coupon_asc":
 		sort.Slice(bonds, func(i, j int) bool {
 			return safeFloat(bonds[i].CouponDisplay) < safeFloat(bonds[j].CouponDisplay)
+		})
+	case "duration_asc":
+		sort.Slice(bonds, func(i, j int) bool {
+			return safeInt(bonds[i].Duration) < safeInt(bonds[j].Duration)
+		})
+	case "duration_desc":
+		sort.Slice(bonds, func(i, j int) bool {
+			return safeInt(bonds[i].Duration) > safeInt(bonds[j].Duration)
 		})
 	default: // "best" — composite
 		sort.Slice(bonds, func(i, j int) bool {
@@ -640,4 +872,57 @@ func safeInt(p *int) int {
 		return 0
 	}
 	return *p
+}
+
+// mergeYieldData supplements bond with data from marketdata_yields block
+// (only fills fields that are still nil — marketdata takes priority)
+func mergeYieldData(b *model.Bond, yld map[string]any) {
+	if yld == nil {
+		return
+	}
+	if b.EffectiveYield == nil {
+		b.EffectiveYield = getFloatPtr(yld, "EFFECTIVEYIELD")
+	}
+	if b.YieldAtWAPrice == nil {
+		b.YieldAtWAPrice = getFloatPtr(yld, "YIELDATWAPRICE")
+	}
+	if b.YieldToPrevYield == nil {
+		b.YieldToPrevYield = getFloatPtr(yld, "YIELDTOPREVYIELD")
+	}
+	if b.CloseYield == nil {
+		b.CloseYield = getFloatPtr(yld, "CLOSEYIELD")
+	}
+	if b.ZSpread == nil {
+		b.ZSpread = getFloatPtr(yld, "ZSPREAD")
+	}
+	if b.ZSpreadAtWAPrice == nil {
+		b.ZSpreadAtWAPrice = getFloatPtr(yld, "ZSPREADATWAPRICE")
+	}
+	if b.IRICPIClose == nil {
+		b.IRICPIClose = getFloatPtr(yld, "IRICPICLOSE")
+	}
+	if b.BEIClose == nil {
+		b.BEIClose = getFloatPtr(yld, "BEICLOSE")
+	}
+	if b.CBRClose == nil {
+		b.CBRClose = getFloatPtr(yld, "CBRCLOSE")
+	}
+	if b.Duration == nil {
+		b.Duration = getIntPtr(yld, "DURATION")
+	}
+	if b.YieldToOffer == nil {
+		b.YieldToOffer = getFloatPtr(yld, "YIELDTOOFFER")
+	}
+	if b.YieldLastCoupon == nil {
+		b.YieldLastCoupon = getFloatPtr(yld, "YIELDLASTCOUPON")
+	}
+	if b.CallOptionYield == nil {
+		b.CallOptionYield = getFloatPtr(yld, "CALLOPTIONYIELD")
+	}
+	if b.CallOptionDuration == nil {
+		b.CallOptionDuration = getIntPtr(yld, "CALLOPTIONDURATION")
+	}
+	if b.DurationWAPrice == nil {
+		b.DurationWAPrice = getIntPtr(yld, "DURATIONWAPRICE")
+	}
 }

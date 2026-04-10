@@ -16,6 +16,7 @@ type Handler struct {
 	Rating    *RatingHandler
 	Chat      *ChatHandler
 	Favorite  *FavoriteHandler
+	Details   *DetailsHandler
 	JWTSecret string
 }
 
@@ -44,6 +45,10 @@ func (h *Handler) SetChatHandler(ch *ChatHandler) {
 
 func (h *Handler) SetFavoriteHandler(fh *FavoriteHandler) {
 	h.Favorite = fh
+}
+
+func (h *Handler) SetDetailsHandler(dh *DetailsHandler) {
+	h.Details = dh
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {

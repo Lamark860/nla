@@ -1,26 +1,23 @@
 <template>
   <div>
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold" style="color: var(--nla-text)">Месячные купоны по эмитентам</h1>
-      <div class="flex items-center gap-2">
-        <NuxtLink to="/bonds/by-issuer" class="btn-secondary text-sm">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-          Все по эмитентам
-        </NuxtLink>
-      </div>
+    <div class="d-flex align-items-center justify-content-between mb-4">
+      <h1 class="h4 fw-bold mb-0">Месячные купоны по эмитентам</h1>
+      <NuxtLink to="/bonds/by-issuer" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-grid me-1"></i>Все по эмитентам
+      </NuxtLink>
     </div>
 
     <!-- Loading -->
-    <div v-if="pending" class="card p-16 text-center">
-      <div class="inline-block w-6 h-6 border-2 border-primary-200 border-t-primary-600 dark:border-primary-800 dark:border-t-primary-400 rounded-full animate-spin"></div>
-      <p class="mt-4 text-xs" style="color: var(--nla-text-muted)">Загрузка…</p>
+    <div v-if="pending" class="card p-5 text-center">
+      <div class="spinner-border" role="status"><span class="visually-hidden">Загрузка…</span></div>
+      <p class="mt-3 small text-muted">Загрузка…</p>
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="card p-10 text-center">
-      <p class="text-red-600 dark:text-red-400 text-sm">{{ error.message }}</p>
-      <button class="btn-primary mt-4 text-sm" @click="refresh()">Повторить</button>
+    <div v-else-if="error" class="card p-5 text-center">
+      <p class="text-danger small">{{ error.message }}</p>
+      <button class="btn btn-primary btn-sm mt-3" @click="refresh()">Повторить</button>
     </div>
 
     <template v-else-if="groupedData">
@@ -32,13 +29,13 @@
         @update="filters = $event"
         @reset="resetFilters"
       />
-      <IssuerCardGrid :issuers="filteredGroups" :ratings="ratingsMap" />
+      <IssuerCardGrid :issuers="filteredGroups" :ratings="ratingsMap" :ai-stats="aiStatsMap" />
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Bond, IssuerGroup, IssuerRatingResponse } from '~/composables/useApi'
+import type { Bond, IssuerGroup, IssuerRatingResponse, AnalysisStats } from '~/composables/useApi'
 import type { IssuerFilterValues } from '~/components/IssuerFilters.vue'
 
 const api = useApi()
@@ -54,6 +51,10 @@ const { data: groupedData, pending, error, refresh } = useAsyncData('monthly-gro
 const ratingsMap = ref<Record<string, IssuerRatingResponse>>({})
 const { data: ratingsData } = useAsyncData('monthly-ratings', () => api.getRatings(), { default: () => ({}) })
 watch(ratingsData, (v) => { if (v) ratingsMap.value = v }, { immediate: true })
+
+const aiStatsMap = ref<Record<string, AnalysisStats>>({})
+const { data: aiStatsData } = useAsyncData('monthly-ai-stats', () => api.getBulkAnalysisStats(), { default: () => ({}) })
+watch(aiStatsData, (v) => { if (v) aiStatsMap.value = v }, { immediate: true })
 
 const filteredGroups = computed(() => {
   if (!groupedData.value) return []
@@ -91,7 +92,7 @@ function matchesBond(bond: Bond): boolean {
 function matchesIssuerRating(group: IssuerGroup): boolean {
   const r = filters.value.rating
   if (!r) return true
-  const rating = getIssuerRating(group.emitter_name)
+  const rating = getIssuerRating(group.emitter_id)
   const score = rating?.score ?? -1
   switch (r) {
     case 'aaa': return score >= 9
@@ -103,13 +104,9 @@ function matchesIssuerRating(group: IssuerGroup): boolean {
   }
 }
 
-function getIssuerRating(name: string): IssuerRatingResponse | null {
-  if (ratingsMap.value[name]) return ratingsMap.value[name]
-  const lower = name.toLowerCase()
-  for (const [key, val] of Object.entries(ratingsMap.value)) {
-    if (lower.includes(key.toLowerCase()) || key.toLowerCase().includes(lower)) return val
-  }
-  return null
+function getIssuerRating(emitterId: number): IssuerRatingResponse | null {
+  if (!emitterId) return null
+  return ratingsMap.value[String(emitterId)] ?? null
 }
 
 function resetFilters() {

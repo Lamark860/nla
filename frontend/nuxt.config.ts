@@ -3,12 +3,17 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   modules: [
-    '@nuxtjs/tailwindcss',
     '@nuxtjs/color-mode',
   ],
 
+  css: [
+    'bootstrap/dist/css/bootstrap.min.css',
+    'bootstrap-icons/font/bootstrap-icons.css',
+    '~/assets/css/main.css',
+  ],
+
   colorMode: {
-    classSuffix: '',
+    dataValue: 'theme',
     preference: 'system',
     fallback: 'light',
   },

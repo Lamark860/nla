@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -37,11 +38,24 @@ func NewClient(cfg Config) *Client {
 	}
 	cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/") + "/"
 
+	httpClient := &http.Client{Timeout: cfg.Timeout}
+
+	// Configure proxy if provided
+	if cfg.Proxy != "" {
+		proxyURL, err := url.Parse("http://" + cfg.Proxy)
+		if err == nil {
+			httpClient.Transport = &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			}
+		}
+	}
+
 	return &Client{
 		apiKey:  cfg.APIKey,
 		baseURL: cfg.BaseURL,
 		model:   cfg.Model,
-		http:    &http.Client{Timeout: cfg.Timeout},
+		proxy:   cfg.Proxy,
+		http:    httpClient,
 	}
 }
 

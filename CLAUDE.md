@@ -60,12 +60,13 @@ go test ./internal/middleware/... -v
 go test ./internal/handler/... -v
 ```
 
-### Test structure (48 tests, all passing)
+### Test structure (54 tests, all passing)
 - `internal/service/auth_test.go` — auth unit tests (mock repo, 12 tests)
 - `internal/service/analysis_test.go` — rating parser (18 tests)
 - `internal/middleware/auth_test.go` — JWT middleware (9 tests)
 - `internal/handler/auth_test.go` — HTTP handler integration (9 tests)
 - `internal/handler/test_helpers_test.go` — shared test mocks
+- `internal/client/dohod/client_test.go` — dohod.ru Nuxt payload parser (6 tests)
 
 ## API Documentation
 
@@ -96,22 +97,33 @@ nla/
 │   ├── database/                # DB connections (postgres, mongo, redis)
 │   ├── client/
 │   │   ├── moex/client.go       # MOEX ISS API client (5 endpoints)
-│   │   └── openai/client.go     # OpenAI client (retry, reasoning models)
+│   │   ├── openai/client.go     # OpenAI client (retry, reasoning models)
+│   │   └── dohod/client.go      # Dohod.ru Nuxt SSR parser (HTTP + __NUXT_DATA__)
 │   ├── handler/
 │   │   ├── auth.go              # Auth handlers + Handler struct
 │   │   ├── bond.go              # Bond endpoints (list, detail, coupons, history)
-│   │   └── analysis.go          # AI analysis + job polling
+│   │   ├── analysis.go          # AI analysis + job polling
+│   │   └── details.go           # Dohod.ru details endpoint
 │   ├── middleware/auth.go       # JWT middleware
-│   ├── model/                   # Data models (user, bond, job, chat)
+│   ├── model/                   # Data models (user, bond, job, chat, dohod)
 │   ├── mongo/
 │   │   ├── analysis.go          # BondAnalysis MongoDB repo
+│   │   ├── details.go           # DohodDetails MongoDB repo (30-day TTL cache)
+│   │   ├── issuer.go            # BondIssuer repo (secid ↔ emitter_id mapping)
+│   │   ├── rating.go            # IssuerRating repo (credit ratings by emitter_id)
+│   │   ├── chat.go              # Chat sessions/messages repo
 │   │   └── queue.go             # QueueJob MongoDB repo
 │   ├── queue/worker.go          # Background job worker (goroutine)
-│   ├── repository/user.go       # PostgreSQL user queries
+│   ├── repository/
+│   │   ├── user.go              # PostgreSQL user queries
+│   │   └── favorite.go          # PostgreSQL favorites queries
 │   ├── service/
 │   │   ├── auth.go              # Auth business logic
-│   │   ├── bond.go              # MOEX data + cache + calculations
+│   │   ├── bond.go              # MOEX data + cache + calculations + issuer grouping
 │   │   ├── analysis.go          # AI analysis + rating parser
+│   │   ├── details.go           # Dohod.ru service (cache + retry + save + rating sync)
+│   │   ├── rating.go            # Credit ratings CRUD + GetAll by emitter_id
+│   │   ├── chat.go              # Chat service
 │   │   └── queue.go             # Job lifecycle + dedup
 │   └── router/router.go         # Chi routes
 ├── data/prompts/bond_analyst.txt # AI system prompt
@@ -148,6 +160,9 @@ GET  /api/v1/bonds/{secid}            — Bond detail
 GET  /api/v1/bonds/{secid}/coupons    — Coupon schedule
 GET  /api/v1/bonds/{secid}/history    — Price history (candles)
 
+# Dohod.ru Details (public, async)
+GET  /api/v1/bonds/{secid}/dohod      — Dohod.ru analytics (cached or enqueue)
+
 # AI Analysis (public)
 POST /api/v1/bonds/{secid}/analyze    — Start AI analysis (async)
 GET  /api/v1/bonds/{secid}/analyses   — List analyses for bond
@@ -165,6 +180,25 @@ GET    /api/v1/favorites/check        — Check multiple secids (?secids=A,B)
 POST   /api/v1/favorites/{secid}      — Add to favorites
 DELETE /api/v1/favorites/{secid}      — Remove from favorites
 ```
+
+## Credit Ratings Architecture
+
+```
+dohod.ru fetch → DetailsService.FetchAndSave()
+                        ↓
+              updateRatingsFromDohod()
+                        ↓
+              bond_issuers.GetBySecid(secid) → emitter_id
+                        ↓
+              issuer_ratings collection (key: emitter_id + agency)
+```
+
+- Ratings stored by `emitter_id` (int64), NOT by name
+- `emitter_id` resolved from `bond_issuers` (MOEX disclosure API)
+- Score comes from dohod.ru `credit_rating` field (1-10 scale)
+- Agencies: АКРА, Эксперт РА, Fitch, Moody's, S&P
+- API `/ratings` returns `map[emitter_id_string]IssuerRatingResponse`
+- Frontend maps directly by `emitter_id` (no fuzzy matching)
 
 ## Architecture Pattern
 
@@ -205,7 +239,7 @@ Reference UI: `http://postroika.test:8081/bond`
 | Feature | ASH | NLA | Status |
 |---------|-----|-----|--------|
 | Bond list (table, sort, paginate) | ✅ | ✅ | Done |
-| Bond detail — 7 tabs | ✅ 8 tabs | ✅ 7 tabs | No "Details" tab |
+| Bond detail — 8 tabs | ✅ 8 tabs | ✅ 8 tabs | Done |
 | Basic: Params + Финансы | ✅ | ✅ | Done |
 | Basic: Даты + прогресс жизни | ✅ | ✅ | Done |
 | Basic: Купонные параметры | ✅ | ✅ | Done |
@@ -218,7 +252,7 @@ Reference UI: `http://postroika.test:8081/bond`
 | Coupons: Прогноз по годам | ✅ | ✅ | Done (v0.6) |
 | AI Analysis: Send + poll + history | ✅ | ✅ | Done |
 | External: iframes | ✅ | ✅ | Done |
-| Details tab (dohod.ru data) | ✅ | ❌ | Missing tab entirely |
+| Details tab (dohod.ru data) | ✅ | ✅ | Done — async fetch + cache 30d |
 | By issuer: cards + filters | ✅ | ✅ | Done |
 | Monthly coupons | ✅ | ✅ | Done |
 | Credit ratings | ✅ | ✅ | Done |

@@ -113,3 +113,42 @@ func (r *AnalysisRepo) GetLatestRatings(ctx context.Context, secids []string) (m
 	}
 	return result, nil
 }
+
+// GetBulkStats returns analysis count and average rating per SECID (batch)
+func (r *AnalysisRepo) GetBulkStats(ctx context.Context) (map[string]model.AnalysisStats, error) {
+	pipeline := mongo.Pipeline{
+		{{Key: "$group", Value: bson.M{
+			"_id":        "$secid",
+			"total":      bson.M{"$sum": 1},
+			"avg_rating": bson.M{"$avg": "$rating"},
+			"last":       bson.M{"$max": "$timestamp"},
+		}}},
+	}
+
+	cursor, err := r.col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	result := make(map[string]model.AnalysisStats)
+	for cursor.Next(ctx) {
+		var doc struct {
+			SECID     string     `bson:"_id"`
+			Total     int        `bson:"total"`
+			AvgRating *float64   `bson:"avg_rating"`
+			Last      *time.Time `bson:"last"`
+		}
+		if cursor.Decode(&doc) == nil {
+			stats := model.AnalysisStats{
+				Total:        doc.Total,
+				LastAnalysis: doc.Last,
+			}
+			if doc.AvgRating != nil {
+				stats.AvgRating = *doc.AvgRating
+			}
+			result[doc.SECID] = stats
+		}
+	}
+	return result, nil
+}

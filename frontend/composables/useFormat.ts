@@ -71,5 +71,28 @@ export function useFormat() {
       if (rating >= 35) return 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
       return 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400'
     },
+
+    /** Date+time — "09.04.2026 19:43:58" */
+    dateTime(val: string | null | undefined): string {
+      if (!val) return '—'
+      try {
+        const d = new Date(val)
+        return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU')
+      } catch {
+        return val
+      }
+    },
+
+    /** Time only — "19:43:58" */
+    time(val: string | null | undefined): string {
+      if (!val) return '—'
+      // If already HH:MM:SS format, return as-is
+      if (/^\d{2}:\d{2}(:\d{2})?$/.test(val)) return val
+      try {
+        return new Date(val).toLocaleTimeString('ru-RU')
+      } catch {
+        return val
+      }
+    },
   }
 }

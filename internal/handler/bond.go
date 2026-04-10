@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -114,4 +115,38 @@ func (h *BondHandler) GetBondsGrouped(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+// ClearCache POST /api/v1/bonds/clear-cache — invalidate bond cache
+func (h *BondHandler) ClearCache(w http.ResponseWriter, r *http.Request) {
+	count, err := h.bondService.ClearCache(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "cleared": count})
+}
+
+// ToggleIssuer POST /api/v1/issuers/{id}/toggle — hide/show issuer
+func (h *BondHandler) ToggleIssuer(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	emitterID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || emitterID <= 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid emitter id"})
+		return
+	}
+
+	var req struct {
+		Hidden bool `json:"hidden"`
+	}
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+
+	count, err := h.bondService.ToggleIssuer(r.Context(), emitterID, req.Hidden)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"emitter_id": emitterID, "hidden": req.Hidden, "affected": count})
 }

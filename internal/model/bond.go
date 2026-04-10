@@ -99,6 +99,7 @@ type Bond struct {
 	CBRClose              *float64 `json:"cbrclose"`
 	CallOptionYield       *float64 `json:"calloptionyield"`
 	CallOptionDuration    *int     `json:"calloptionduration"`
+	DurationWAPrice       *int     `json:"durationwaprice"`
 
 	// Price change fields
 	LastChange      *float64 `json:"last_change"`
@@ -115,6 +116,33 @@ type Bond struct {
 	IsIndexed      bool     `json:"is_indexed"`
 	BondCategory   string   `json:"bond_category"`
 	CouponDisplay  *float64 `json:"coupon_display"`
+
+	// Extended calculated fields (ASH parity)
+	YearsToMaturity  *float64 `json:"years_to_maturity"`
+	DaysToCall       *int     `json:"days_to_call"`
+	DaysToPut        *int     `json:"days_to_put"`
+	DaysToNextCoupon *int     `json:"days_to_next_coupon"`
+	CurrentYield     *float64 `json:"current_yield"`
+	ModifiedDuration *float64 `json:"modified_duration"`
+	SpreadAbsolute   *float64 `json:"spread_absolute"`
+	SpreadPercent    *float64 `json:"spread_percent"`
+	MidPricePct      *float64 `json:"mid_price_pct"`
+	MidPriceRUB      *float64 `json:"mid_price_rub"`
+	BidRUB           *float64 `json:"bid_rub"`
+	OfferRUB         *float64 `json:"offer_rub"`
+	AvgTradeSize     *float64 `json:"avg_trade_size"`
+	TotalDepth       *int64   `json:"total_depth"`
+	BidOfferRatio    *float64 `json:"bid_offer_ratio"`
+	AccruedIntPct    *float64 `json:"accrued_int_pct"`
+	LifeProgress     *float64 `json:"life_progress"`
+	IsNearOffer      bool     `json:"is_near_offer"`
+	HasNoFixedCoupon bool     `json:"has_no_fixed_coupon"`
+	TradingStatusTxt string   `json:"trading_status_text"`
+	RiskCategory     string   `json:"risk_category"`
+
+	// Issuer info (resolved from bond_issuers collection)
+	EmitterID   *int64 `json:"emitter_id,omitempty"`
+	EmitterName string `json:"emitter_name,omitempty"`
 }
 
 // BondDetail represents full bond details from MOEX with coupons and history
@@ -194,6 +222,7 @@ type BondIssuer struct {
 // IssuerRating holds credit rating for an issuer
 type IssuerRating struct {
 	ID        string    `json:"id" bson:"_id,omitempty"`
+	EmitterID int64     `json:"emitter_id" bson:"emitter_id"`
 	Issuer    string    `json:"issuer" bson:"issuer"`
 	Agency    string    `json:"agency" bson:"agency"`
 	Rating    string    `json:"rating" bson:"rating"`
@@ -203,9 +232,10 @@ type IssuerRating struct {
 
 // IssuerRatingResponse is the API response for issuer ratings
 type IssuerRatingResponse struct {
-	Issuer  string         `json:"issuer"`
-	Ratings []IssuerRating `json:"ratings"`
-	Score   int            `json:"score"`
+	EmitterID int64          `json:"emitter_id"`
+	Issuer    string         `json:"issuer"`
+	Ratings   []IssuerRating `json:"ratings"`
+	Score     int            `json:"score"`
 }
 
 // IssuerGroup represents a group of bonds by the same emitter

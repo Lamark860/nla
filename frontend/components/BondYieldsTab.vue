@@ -1,209 +1,144 @@
 <template>
-  <div class="space-y-6 animate-fade-in">
+  <div class="animate-fade-in">
     <!-- Stat cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="stat-card">
-        <div class="stat-label">Доходность к погашению</div>
-        <div class="stat-value" :class="yieldColor(bond.yield)">{{ fmt.percent(bond.yield) }}</div>
-        <div class="stat-sub">YTM</div>
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-3">
+        <div class="stat-card">
+          <div class="stat-label">Доходность к погашению</div>
+          <div class="stat-value" :class="yieldColor(bond.yield)">{{ fmt.percent(bond.yield) }}</div>
+          <div class="stat-sub">YTM</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">К оферте</div>
-        <div class="stat-value" :class="yieldColor(bond.yieldtooffer)">{{ fmt.percent(bond.yieldtooffer) }}</div>
-        <div class="stat-sub">{{ bond.offerdate && bond.offerdate !== 'None' ? fmt.date(bond.offerdate) : 'нет оферты' }}</div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card">
+          <div class="stat-label">К оферте</div>
+          <div class="stat-value" :class="yieldColor(bond.yieldtooffer)">{{ fmt.percent(bond.yieldtooffer) }}</div>
+          <div class="stat-sub">{{ bond.offerdate && bond.offerdate !== 'None' ? fmt.date(bond.offerdate) : 'нет оферты' }}</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Дюрация</div>
-        <div class="stat-value">{{ bond.duration ?? '—' }}</div>
-        <div class="stat-sub">{{ modDuration }}</div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card">
+          <div class="stat-label">Дюрация</div>
+          <div class="stat-value">{{ bond.duration ?? '—' }}</div>
+          <div class="stat-sub">{{ modDuration }}</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Купонная доходность</div>
-        <div class="stat-value">{{ couponYield }}</div>
-        <div class="stat-sub">годовой купон / цена</div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card">
+          <div class="stat-label">Купонная доходность</div>
+          <div class="stat-value">{{ couponYield }}</div>
+          <div class="stat-sub">годовой купон / цена</div>
+        </div>
       </div>
     </div>
 
     <!-- Yield comparison + Decomposition -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Yield comparison (col-span-2) -->
-      <div class="card p-6 lg:col-span-2">
-        <h3 class="section-title mb-5">Сравнение доходностей</h3>
-        <div class="space-y-5">
-          <YieldRow label="Доходность к погашению (YTM)" :value="bond.yield" :max="maxYieldForBar" />
-          <YieldRow label="К оферте" :value="bond.yieldtooffer" :max="maxYieldForBar" />
-          <YieldRow label="Эффективная доходность" :value="effectiveYieldNum" :max="maxYieldForBar" />
-          <YieldRow label="Купонная доходность" :value="couponYieldNum" :max="maxYieldForBar" />
-          <YieldRow label="Текущая доходность" :value="currentYieldNum" :max="maxYieldForBar" />
-          <YieldRow label="По WAP (средневзвешенная)" :value="bond.yieldatwaprice" :max="maxYieldForBar" />
-          <YieldRow label="По предыдущей WAP" :value="bond.yieldatprevwaprice" :max="maxYieldForBar" />
+    <div class="row g-4 mb-4">
+      <!-- Yield comparison -->
+      <div class="col-lg-8">
+        <div class="card p-4">
+          <h3 class="section-title mb-4">Сравнение доходностей</h3>
+          <div class="d-flex flex-column gap-3">
+            <YieldBar label="Доходность к погашению (YTM)" :value="bond.yield" :max="maxYieldForBar" />
+            <YieldBar label="К оферте" :value="bond.yieldtooffer" :max="maxYieldForBar" />
+            <YieldBar label="Эффективная доходность" :value="effectiveYieldNum" :max="maxYieldForBar" />
+            <YieldBar label="Купонная доходность" :value="couponYieldNum" :max="maxYieldForBar" />
+            <YieldBar label="Текущая доходность" :value="currentYieldNum" :max="maxYieldForBar" />
+            <YieldBar label="По WAP (средневзвешенная)" :value="bond.yieldatwaprice" :max="maxYieldForBar" />
+            <YieldBar label="По предыдущей WAP" :value="bond.yieldatprevwaprice" :max="maxYieldForBar" />
+          </div>
         </div>
       </div>
 
       <!-- YTM Decomposition -->
-      <div class="card p-6">
-        <h3 class="section-title mb-5">Декомпозиция YTM</h3>
-        <div v-if="bond.yield != null" class="space-y-5">
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs text-slate-500 dark:text-slate-400">Купонный доход</span>
-              <span class="text-sm font-semibold font-mono" :class="couponYieldNum != null && couponYieldNum > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'">{{ couponYield }}</span>
+      <div class="col-lg-4">
+        <div class="card p-4">
+          <h3 class="section-title mb-4">Декомпозиция YTM</h3>
+          <div v-if="bond.yield != null" class="d-flex flex-column gap-3">
+            <div>
+              <div class="d-flex justify-content-between mb-1">
+                <span class="small text-muted">Купонный доход</span>
+                <span class="small fw-semibold font-monospace" :class="couponYieldNum != null && couponYieldNum > 0 ? 'text-success' : 'text-muted'">{{ couponYield }}</span>
+              </div>
+              <div class="yield-bar"><div class="yield-bar__fill yield-bar__fill--success" :style="{ width: couponPctOfYtm + '%' }"></div></div>
             </div>
-            <div class="h-2.5 bg-slate-100 dark:bg-surface-800 rounded-lg overflow-hidden">
-              <div class="h-full bg-emerald-500 dark:bg-emerald-400 rounded-lg" :style="{ width: couponPctOfYtm + '%' }"></div>
+            <div>
+              <div class="d-flex justify-content-between mb-1">
+                <span class="small text-muted">Ценовой {{ priceYieldNum >= 0 ? 'доход' : 'убыток' }}</span>
+                <span class="small fw-semibold font-monospace" :class="priceYieldNum >= 0 ? 'text-primary' : 'text-danger'">{{ priceYieldNum.toFixed(2) }}%</span>
+              </div>
+              <div class="yield-bar"><div :class="priceYieldNum >= 0 ? 'yield-bar__fill--primary' : 'yield-bar__fill--danger'" class="yield-bar__fill" :style="{ width: pricePctOfYtm + '%' }"></div></div>
             </div>
-          </div>
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs text-slate-500 dark:text-slate-400">Ценовой {{ priceYieldNum >= 0 ? 'доход' : 'убыток' }}</span>
-              <span class="text-sm font-semibold font-mono" :class="priceYieldNum >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'">{{ priceYieldNum.toFixed(2) }}%</span>
-            </div>
-            <div class="h-2.5 bg-slate-100 dark:bg-surface-800 rounded-lg overflow-hidden">
-              <div :class="priceYieldNum >= 0 ? 'bg-blue-500 dark:bg-blue-400' : 'bg-red-500 dark:bg-red-400'" class="h-full rounded-lg" :style="{ width: pricePctOfYtm + '%' }"></div>
-            </div>
-          </div>
-          <div class="pt-3 border-t border-slate-200/60 dark:border-slate-700/30">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-medium text-slate-700 dark:text-slate-300">Итого YTM</span>
-              <span class="text-sm font-bold font-mono" :class="yieldColor(bond.yield)">{{ fmt.percent(bond.yield) }}</span>
+            <div class="pt-3 border-top">
+              <div class="d-flex justify-content-between">
+                <span class="small fw-medium">Итого YTM</span>
+                <span class="small fw-bold font-monospace" :class="yieldColor(bond.yield)">{{ fmt.percent(bond.yield) }}</span>
+              </div>
             </div>
           </div>
+          <div v-else class="text-center text-muted small py-5">Нет данных</div>
         </div>
-        <div v-else class="text-center text-sm text-slate-400 dark:text-slate-500 py-6">Нет данных</div>
       </div>
     </div>
 
     <!-- Yield indicators table -->
-    <div class="card overflow-hidden">
+    <div class="card overflow-hidden mb-4">
       <div class="panel-header">
-        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+        <i class="bi bi-bar-chart"></i>
         Показатели доходности
       </div>
       <table class="data-table">
-        <thead>
-          <tr>
-            <th class="text-left">Показатель</th>
-            <th class="text-right">Значение</th>
-          </tr>
-        </thead>
+        <thead><tr><th class="text-start">Показатель</th><th class="text-end">Значение</th></tr></thead>
         <tbody>
-          <tr>
-            <td>По WAP (текущая)</td>
-            <td class="text-right font-mono">{{ fmt.percent(bond.yieldatwaprice) }}</td>
-          </tr>
-          <tr>
-            <td>Изменение от пред. дня</td>
-            <td class="text-right font-mono" :class="changeColor(bond.yieldtoprevyield)">{{ fmtChange(bond.yieldtoprevyield) }}</td>
-          </tr>
-          <tr>
-            <td>По предыдущей WAP</td>
-            <td class="text-right font-mono">{{ fmt.percent(bond.yieldatprevwaprice) }}</td>
-          </tr>
-          <tr>
-            <td>К оферте</td>
-            <td class="text-right font-mono">{{ fmt.percent(bond.yieldtooffer) }}</td>
-          </tr>
-          <tr>
-            <td>По последнему купону</td>
-            <td class="text-right font-mono">{{ fmt.percent(bond.yieldlastcoupon) }}</td>
-          </tr>
-          <tr>
-            <td>CALL-опцион доходность</td>
-            <td class="text-right font-mono">{{ fmt.percent(bond.calloptionyield) }}</td>
-          </tr>
-          <tr>
-            <td>Закрытия</td>
-            <td class="text-right font-mono">{{ fmt.percent(bond.closeyield) }}</td>
-          </tr>
-          <tr>
-            <td>Дата расчёта</td>
-            <td class="text-right font-mono">{{ bond.prevdate ? fmt.date(bond.prevdate) : '—' }}</td>
-          </tr>
+          <tr><td>По WAP (текущая)</td><td class="text-end font-monospace">{{ fmt.percent(bond.yieldatwaprice) }}</td></tr>
+          <tr><td>Изменение от пред. дня</td><td class="text-end font-monospace" :class="changeColor(bond.yieldtoprevyield)">{{ fmtChange(bond.yieldtoprevyield) }}</td></tr>
+          <tr><td>По предыдущей WAP</td><td class="text-end font-monospace">{{ fmt.percent(bond.yieldatprevwaprice) }}</td></tr>
+          <tr><td>К оферте</td><td class="text-end font-monospace">{{ fmt.percent(bond.yieldtooffer) }}</td></tr>
+          <tr><td>По последнему купону</td><td class="text-end font-monospace">{{ fmt.percent(bond.yieldlastcoupon) }}</td></tr>
+          <tr><td>CALL-опцион доходность</td><td class="text-end font-monospace">{{ fmt.percent(bond.calloptionyield) }}</td></tr>
+          <tr><td>Закрытия</td><td class="text-end font-monospace">{{ fmt.percent(bond.closeyield) }}</td></tr>
+          <tr><td>Дата расчёта</td><td class="text-end font-monospace">{{ bond.prevdate ? fmt.date(bond.prevdate) : '—' }}</td></tr>
         </tbody>
       </table>
     </div>
 
     <!-- Spreads and indices -->
-    <div class="card overflow-hidden">
+    <div class="card overflow-hidden mb-4">
       <div class="panel-header">
-        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+        <i class="bi bi-arrows-expand"></i>
         Спреды и индексы
       </div>
       <table class="data-table">
-        <thead>
-          <tr>
-            <th class="text-left">Показатель</th>
-            <th class="text-right">Значение</th>
-          </tr>
-        </thead>
+        <thead><tr><th class="text-start">Показатель</th><th class="text-end">Значение</th></tr></thead>
         <tbody>
-          <tr>
-            <td>Z-spread</td>
-            <td class="text-right font-mono">{{ fmtBps(bond.zspread) }}</td>
-          </tr>
-          <tr>
-            <td>Z-spread по WAP</td>
-            <td class="text-right font-mono">{{ fmtBps(bond.zspreadatwaprice) }}</td>
-          </tr>
-          <tr>
-            <td>Bid/Ask спред</td>
-            <td class="text-right font-mono">{{ bond.spread != null ? bond.spread.toFixed(2) + ' п.п.' : '—' }}</td>
-          </tr>
-          <tr>
-            <td>IR (индекс ИПЦ)</td>
-            <td class="text-right font-mono">{{ fmtBps(bond.iricpiclose) }}</td>
-          </tr>
-          <tr>
-            <td>BEI (инфл. ожидания)</td>
-            <td class="text-right font-mono">{{ fmtBps(bond.beiclose) }}</td>
-          </tr>
-          <tr>
-            <td>CBR (ключ. ставка)</td>
-            <td class="text-right font-mono">{{ fmtBps(bond.cbrclose) }}</td>
-          </tr>
+          <tr><td>Z-spread</td><td class="text-end font-monospace">{{ fmtBps(bond.zspread) }}</td></tr>
+          <tr><td>Z-spread по WAP</td><td class="text-end font-monospace">{{ fmtBps(bond.zspreadatwaprice) }}</td></tr>
+          <tr><td>Bid/Ask спред</td><td class="text-end font-monospace">{{ bond.spread != null ? bond.spread.toFixed(2) + ' п.п.' : '—' }}</td></tr>
+          <tr><td>IR (индекс ИПЦ)</td><td class="text-end font-monospace">{{ fmtBps(bond.iricpiclose) }}</td></tr>
+          <tr><td>BEI (инфл. ожидания)</td><td class="text-end font-monospace">{{ fmtBps(bond.beiclose) }}</td></tr>
+          <tr><td>CBR (ключ. ставка)</td><td class="text-end font-monospace">{{ fmtBps(bond.cbrclose) }}</td></tr>
         </tbody>
       </table>
     </div>
 
     <!-- Coupon parameters -->
-    <div class="card p-6">
-      <h3 class="section-title mb-5">Параметры купона</h3>
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        <div>
-          <div class="stat-label">Ставка купона</div>
-          <div class="stat-value mt-1">{{ fmt.percent(bond.coupon_percent) }}</div>
-        </div>
-        <div>
-          <div class="stat-label">Сумма купона</div>
-          <div class="stat-value mt-1">{{ fmt.priceRub(bond.coupon_value) }}</div>
-        </div>
-        <div>
-          <div class="stat-label">Период купона</div>
-          <div class="stat-value mt-1">{{ bond.coupon_period }} <span class="text-sm font-normal text-slate-400">дн.</span></div>
-        </div>
-        <div>
-          <div class="stat-label">НКД</div>
-          <div class="stat-value mt-1">{{ fmt.priceRub(bond.accrued_int) }}</div>
-        </div>
+    <div class="card p-4 mb-4">
+      <h3 class="section-title mb-4">Параметры купона</h3>
+      <div class="row g-4">
+        <div class="col-6 col-lg-3"><div class="stat-label">Ставка купона</div><div class="stat-value mt-1">{{ fmt.percent(bond.coupon_percent) }}</div></div>
+        <div class="col-6 col-lg-3"><div class="stat-label">Сумма купона</div><div class="stat-value mt-1">{{ fmt.priceRub(bond.coupon_value) }}</div></div>
+        <div class="col-6 col-lg-3"><div class="stat-label">Период купона</div><div class="stat-value mt-1">{{ bond.coupon_period }} <span class="small fw-normal text-muted">дн.</span></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-label">НКД</div><div class="stat-value mt-1">{{ fmt.priceRub(bond.accrued_int) }}</div></div>
       </div>
     </div>
 
     <!-- Timestamps -->
-    <div v-if="bond.updatetime || bond.tradetime || bond.systime" class="card p-6">
-      <h3 class="section-title mb-4">Временные метки</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div v-if="bond.updatetime">
-          <div class="stat-label">Обновление данных</div>
-          <div class="text-sm font-mono mt-1" style="color: var(--nla-text);">{{ bond.updatetime }}</div>
-        </div>
-        <div v-if="bond.tradetime">
-          <div class="stat-label">Последняя сделка</div>
-          <div class="text-sm font-mono mt-1" style="color: var(--nla-text);">{{ bond.tradetime }}</div>
-        </div>
-        <div v-if="bond.systime">
-          <div class="stat-label">Системное время</div>
-          <div class="text-sm font-mono mt-1" style="color: var(--nla-text);">{{ bond.systime }}</div>
-        </div>
+    <div v-if="bond.updatetime || bond.tradetime || bond.systime" class="card p-4">
+      <h3 class="section-title mb-3">Временные метки</h3>
+      <div class="row g-3">
+        <div v-if="bond.updatetime" class="col-sm-4"><div class="stat-label">Обновление данных</div><div class="small font-monospace mt-1">{{ bond.updatetime }}</div></div>
+        <div v-if="bond.tradetime" class="col-sm-4"><div class="stat-label">Последняя сделка</div><div class="small font-monospace mt-1">{{ bond.tradetime }}</div></div>
+        <div v-if="bond.systime" class="col-sm-4"><div class="stat-label">Системное время</div><div class="small font-monospace mt-1">{{ bond.systime }}</div></div>
       </div>
     </div>
   </div>
@@ -223,8 +158,7 @@ const effectiveYieldNum = computed<number | null>(() => {
 
 const modDuration = computed(() => {
   if (props.bond.duration == null || props.bond.yield == null) return '—'
-  const years = props.bond.duration / 365
-  return `≈ ${years.toFixed(2)} лет`
+  return `≈ ${(props.bond.duration / 365).toFixed(2)} лет`
 })
 
 const couponYieldNum = computed<number | null>(() => {
@@ -242,7 +176,6 @@ const currentYieldNum = computed<number | null>(() => {
   return (props.bond.coupon_value * couponsPerYear / totalPrice) * 100
 })
 
-// YTM Decomposition
 const priceYieldNum = computed(() => {
   if (props.bond.yield == null || couponYieldNum.value == null) return 0
   return props.bond.yield - couponYieldNum.value
@@ -259,29 +192,26 @@ const pricePctOfYtm = computed(() => {
 })
 
 const maxYieldForBar = computed(() => {
-  const vals = [
-    props.bond.yield, couponYieldNum.value, currentYieldNum.value, effectiveYieldNum.value,
-    props.bond.yieldatwaprice, props.bond.yieldatprevwaprice, props.bond.yieldtooffer,
-  ].filter((v): v is number => v != null && v > 0)
+  const vals = [props.bond.yield, couponYieldNum.value, currentYieldNum.value, effectiveYieldNum.value, props.bond.yieldatwaprice, props.bond.yieldatprevwaprice, props.bond.yieldtooffer]
+    .filter((v): v is number => v != null && v > 0)
   return vals.length ? Math.max(...vals) * 1.2 : 20
 })
 
 function yieldColor(y: number | null | undefined): string {
-  if (y == null) return 'text-slate-400'
-  if (y >= 15) return 'text-emerald-600 dark:text-emerald-400'
-  if (y >= 10) return 'text-primary-600 dark:text-primary-400'
-  return 'text-slate-700 dark:text-slate-300'
+  if (y == null) return 'text-muted'
+  if (y >= 15) return 'text-success'
+  if (y >= 10) return 'text-primary'
+  return ''
 }
 
 function changeColor(v: number | null | undefined): string {
   if (v == null) return ''
-  return v > 0 ? 'text-emerald-600 dark:text-emerald-400' : v < 0 ? 'text-red-600 dark:text-red-400' : ''
+  return v > 0 ? 'text-success' : v < 0 ? 'text-danger' : ''
 }
 
 function fmtChange(v: number | null | undefined): string {
   if (v == null) return '—'
-  const sign = v > 0 ? '+' : ''
-  return sign + v.toFixed(2) + ' п.п.'
+  return (v > 0 ? '+' : '') + v.toFixed(2) + ' п.п.'
 }
 
 function fmtBps(v: number | null | undefined): string {
@@ -289,36 +219,23 @@ function fmtBps(v: number | null | undefined): string {
   return v.toFixed(0) + ' б.п.'
 }
 
-const YieldRow = defineComponent({
-  props: {
-    label: String,
-    value: { type: Number, default: null },
-    max: { type: Number, default: 20 },
-  },
-  setup(props) {
-    const pct = computed(() => {
-      if (props.value == null || props.max <= 0) return 0
-      return Math.max(0, Math.min(100, (props.value / props.max) * 100))
+// YieldBar inline component
+const YieldBar = defineComponent({
+  props: { label: String, value: { type: Number, default: null }, max: { type: Number, default: 20 } },
+  setup(p) {
+    const pct = computed(() => p.value == null || p.max <= 0 ? 0 : Math.max(0, Math.min(100, (p.value / p.max) * 100)))
+    const cls = computed(() => {
+      if (p.value == null) return 'yield-bar__fill--primary'
+      if (p.value >= 20) return 'yield-bar__fill--danger'
+      if (p.value >= 15) return 'yield-bar__fill--warning'
+      if (p.value >= 10) return 'yield-bar__fill--success'
+      return 'yield-bar__fill--primary'
     })
-    const color = computed(() => {
-      if (props.value == null) return 'bg-slate-300 dark:bg-slate-600'
-      if (props.value >= 20) return 'bg-red-500 dark:bg-red-400'
-      if (props.value >= 15) return 'bg-amber-500 dark:bg-amber-400'
-      if (props.value >= 10) return 'bg-emerald-500 dark:bg-emerald-400'
-      return 'bg-primary-500 dark:bg-primary-400'
-    })
-    return { pct, color, fmt: useFormat() }
+    return { pct, cls }
   },
-  template: `
-    <div>
-      <div class="flex items-center justify-between mb-1.5">
-        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">{{ label }}</span>
-        <span class="text-sm font-semibold text-slate-900 dark:text-white tabular-nums font-mono">{{ value != null ? value.toFixed(2) + '%' : '—' }}</span>
-      </div>
-      <div class="h-2.5 bg-slate-100 dark:bg-surface-800 rounded-lg overflow-hidden">
-        <div :class="color" class="h-full rounded-lg transition-all duration-500 ease-out" :style="{ width: pct + '%' }"></div>
-      </div>
-    </div>
-  `,
+  template: `<div>
+    <div class="d-flex justify-content-between mb-1"><span class="small text-muted fw-medium">{{ label }}</span><span class="small fw-semibold font-monospace">{{ value != null ? value.toFixed(2) + '%' : '—' }}</span></div>
+    <div class="yield-bar"><div :class="cls" class="yield-bar__fill" :style="{ width: pct + '%' }"></div></div>
+  </div>`,
 })
 </script>

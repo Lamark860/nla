@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"nla/internal/model"
 	mongoRepo "nla/internal/mongo"
@@ -34,11 +35,40 @@ func (s *RatingService) GetByIssuer(ctx context.Context, issuer string) (*model.
 			}
 		}
 		resp.Score = maxScore
+		resp.EmitterID = ratings[0].EmitterID
 	}
 
 	return resp, nil
 }
 
+func (s *RatingService) GetByEmitterID(ctx context.Context, emitterID int64) (*model.IssuerRatingResponse, error) {
+	ratings, err := s.repo.GetByEmitterID(ctx, emitterID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &model.IssuerRatingResponse{
+		EmitterID: emitterID,
+		Ratings:   ratings,
+	}
+
+	if len(ratings) > 0 {
+		maxScore := 0
+		for _, r := range ratings {
+			if r.Score > maxScore {
+				maxScore = r.Score
+			}
+			if resp.Issuer == "" {
+				resp.Issuer = r.Issuer
+			}
+		}
+		resp.Score = maxScore
+	}
+
+	return resp, nil
+}
+
+// GetAll returns all ratings grouped by emitter_id (key = emitter_id as string)
 func (s *RatingService) GetAll(ctx context.Context) (map[string]*model.IssuerRatingResponse, error) {
 	ratings, err := s.repo.GetAll(ctx)
 	if err != nil {
@@ -47,13 +77,15 @@ func (s *RatingService) GetAll(ctx context.Context) (map[string]*model.IssuerRat
 
 	result := make(map[string]*model.IssuerRatingResponse)
 	for _, r := range ratings {
-		resp, ok := result[r.Issuer]
+		key := fmt.Sprintf("%d", r.EmitterID)
+		resp, ok := result[key]
 		if !ok {
 			resp = &model.IssuerRatingResponse{
-				Issuer:  r.Issuer,
-				Ratings: []model.IssuerRating{},
+				EmitterID: r.EmitterID,
+				Issuer:    r.Issuer,
+				Ratings:   []model.IssuerRating{},
 			}
-			result[r.Issuer] = resp
+			result[key] = resp
 		}
 		resp.Ratings = append(resp.Ratings, r)
 		if r.Score > resp.Score {
@@ -76,92 +108,7 @@ func (s *RatingService) Delete(ctx context.Context, issuer, agency string) error
 	return s.repo.Delete(ctx, issuer, agency)
 }
 
-// SeedDefaults populates default credit ratings for well-known Russian issuers.
-// Only inserts if the collection is empty.
+// SeedDefaults is a no-op. Ratings are now populated dynamically from dohod.ru.
 func (s *RatingService) SeedDefaults(ctx context.Context) error {
-	existing, err := s.repo.GetAll(ctx)
-	if err != nil {
-		return err
-	}
-	if len(existing) > 0 {
-		return nil
-	}
-
-	defaults := []model.IssuerRating{
-		// ОФЗ (государственные)
-		{Issuer: "Минфин России", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "Минфин России", Agency: "Эксперт РА", Rating: "ruAAA", Score: 10},
-
-		// Системообразующие банки
-		{Issuer: "Сбербанк", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "ВТБ", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "Газпромбанк", Agency: "АКРА", Rating: "AA+(RU)", Score: 9},
-		{Issuer: "Альфа-Банк", Agency: "АКРА", Rating: "AA+(RU)", Score: 9},
-		{Issuer: "Россельхозбанк", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "Тинькофф Банк", Agency: "Эксперт РА", Rating: "ruAA", Score: 8},
-		{Issuer: "Совкомбанк", Agency: "АКРА", Rating: "AA(RU)", Score: 8},
-		{Issuer: "МКБ", Agency: "АКРА", Rating: "AA-(RU)", Score: 7},
-		{Issuer: "Банк ДОМ.РФ", Agency: "АКРА", Rating: "AA+(RU)", Score: 9},
-		{Issuer: "Промсвязьбанк", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-
-		// Крупные корпорации
-		{Issuer: "Газпром", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "Роснефть", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "РЖД", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "Транснефть", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "Ростелеком", Agency: "АКРА", Rating: "AA+(RU)", Score: 9},
-		{Issuer: "МТС", Agency: "АКРА", Rating: "AA+(RU)", Score: 9},
-		{Issuer: "Магнит", Agency: "АКРА", Rating: "AA(RU)", Score: 8},
-		{Issuer: "Лента", Agency: "АКРА", Rating: "A+(RU)", Score: 6},
-		{Issuer: "ВК", Agency: "Эксперт РА", Rating: "ruA+", Score: 6},
-		{Issuer: "Яндекс", Agency: "Эксперт РА", Rating: "ruAA-", Score: 7},
-		{Issuer: "X5 Group", Agency: "АКРА", Rating: "AA(RU)", Score: 8},
-		{Issuer: "ЛУКОЙЛ", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "Норникель", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "НЛМК", Agency: "АКРА", Rating: "AA+(RU)", Score: 9},
-		{Issuer: "Северсталь", Agency: "АКРА", Rating: "AA+(RU)", Score: 9},
-		{Issuer: "ЕВРАЗ", Agency: "Эксперт РА", Rating: "ruAA", Score: 8},
-		{Issuer: "Полюс", Agency: "АКРА", Rating: "AA(RU)", Score: 8},
-		{Issuer: "АЛРОСА", Agency: "АКРА", Rating: "AA+(RU)", Score: 9},
-		{Issuer: "Русал", Agency: "АКРА", Rating: "AA-(RU)", Score: 7},
-		{Issuer: "ФосАгро", Agency: "АКРА", Rating: "AA(RU)", Score: 8},
-
-		// Девелоперы
-		{Issuer: "ПИК", Agency: "АКРА", Rating: "A+(RU)", Score: 6},
-		{Issuer: "Самолет", Agency: "АКРА", Rating: "A(RU)", Score: 5},
-		{Issuer: "ЛСР", Agency: "Эксперт РА", Rating: "ruA+", Score: 6},
-		{Issuer: "Эталон", Agency: "Эксперт РА", Rating: "ruA", Score: 5},
-
-		// Лизинг и финансы
-		{Issuer: "Система", Agency: "АКРА", Rating: "AA-(RU)", Score: 7},
-		{Issuer: "ДОМ.РФ", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "ВЭБ.РФ", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "ГТЛК", Agency: "АКРА", Rating: "AA(RU)", Score: 8},
-		{Issuer: "Европлан", Agency: "Эксперт РА", Rating: "ruA+", Score: 6},
-		{Issuer: "Балтийский лизинг", Agency: "Эксперт РА", Rating: "ruA+", Score: 6},
-
-		// Субфедеральные
-		{Issuer: "Москва", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "Московская обл", Agency: "АКРА", Rating: "AA+(RU)", Score: 9},
-		{Issuer: "Санкт-Петербург", Agency: "АКРА", Rating: "AAA(RU)", Score: 10},
-		{Issuer: "Свердловская обл", Agency: "АКРА", Rating: "AA(RU)", Score: 8},
-		{Issuer: "Краснодарский край", Agency: "АКРА", Rating: "AA-(RU)", Score: 7},
-
-		// Средние компании
-		{Issuer: "РЕСО-Лизинг", Agency: "Эксперт РА", Rating: "ruA+", Score: 6},
-		{Issuer: "Сэтл Групп", Agency: "Эксперт РА", Rating: "ruA", Score: 5},
-		{Issuer: "Whoosh", Agency: "Эксперт РА", Rating: "ruBBB+", Score: 4},
-		{Issuer: "Позитив", Agency: "Эксперт РА", Rating: "ruA", Score: 5},
-		{Issuer: "Селектел", Agency: "АКРА", Rating: "A-(RU)", Score: 5},
-		{Issuer: "Сегежа", Agency: "АКРА", Rating: "BB+(RU)", Score: 3},
-		{Issuer: "МВидео", Agency: "АКРА", Rating: "A-(RU)", Score: 5},
-		{Issuer: "АФК Система", Agency: "АКРА", Rating: "AA-(RU)", Score: 7},
-
-		// ВДО (высокодоходные)
-		{Issuer: "Калита", Agency: "Эксперт РА", Rating: "ruBBB-", Score: 3},
-		{Issuer: "КарМани", Agency: "Эксперт РА", Rating: "ruBBB-", Score: 3},
-		{Issuer: "МФК Займер", Agency: "Эксперт РА", Rating: "ruBBB", Score: 4},
-	}
-
-	return s.repo.BulkUpsert(ctx, defaults)
+	return nil
 }

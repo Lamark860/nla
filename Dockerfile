@@ -25,6 +25,7 @@ RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 COPY --from=build /nla-api .
+COPY data/ data/
 
 EXPOSE 8080
 

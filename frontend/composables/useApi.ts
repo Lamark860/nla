@@ -93,6 +93,7 @@ export interface Bond {
   cbrclose: number | null
   calloptionyield: number | null
   calloptionduration: number | null
+  durationwaprice: number | null
   // Price changes
   last_change: number | null
   last_change_prcnt: number | null
@@ -105,6 +106,31 @@ export interface Bond {
   is_indexed: boolean
   bond_category: string
   coupon_display: number | null
+  // Extended calculated fields
+  years_to_maturity: number | null
+  days_to_call: number | null
+  days_to_put: number | null
+  days_to_next_coupon: number | null
+  current_yield: number | null
+  modified_duration: number | null
+  spread_absolute: number | null
+  spread_percent: number | null
+  mid_price_pct: number | null
+  mid_price_rub: number | null
+  bid_rub: number | null
+  offer_rub: number | null
+  avg_trade_size: number | null
+  total_depth: number | null
+  bid_offer_ratio: number | null
+  accrued_int_pct: number | null
+  life_progress: number | null
+  is_near_offer: boolean
+  has_no_fixed_coupon: boolean
+  trading_status_text: string
+  risk_category: string
+  // Issuer info (resolved from bond_issuers)
+  emitter_id?: number
+  emitter_name?: string
 }
 
 export interface BondListResponse {
@@ -156,6 +182,7 @@ export interface JobStatus {
 }
 
 export interface IssuerRating {
+  emitter_id: number
   issuer: string
   agency: string
   rating: string
@@ -164,6 +191,7 @@ export interface IssuerRating {
 }
 
 export interface IssuerRatingResponse {
+  emitter_id: number
   issuer: string
   ratings: IssuerRating[]
   score: number
@@ -212,6 +240,83 @@ export interface IssuerGroupResponse {
   groups: IssuerGroup[]
   total_issuers: number
   total_bonds: number
+}
+
+export interface DohodBondData {
+  isin: string
+  secid: string
+  issuer_name: string
+  issuer_sector: string
+  borrower_name: string
+  country: string
+  credit_rating: number
+  credit_rating_text: string
+  akra: string
+  expert_ra: string
+  fitch: string
+  moody: string
+  sp: string
+  estimation_rating: number
+  estimation_rating_text: string
+  quality: number | null
+  quality_outside: number | null
+  quality_inside: number | null
+  quality_balance: number | null
+  quality_earnings: number | null
+  quality_roe_score: number | null
+  quality_roe_value: number | null
+  quality_net_debt: number | null
+  quality_net_debt_value: number | null
+  quality_profit_change: number | null
+  dp1: number | null
+  dp2: number | null
+  dp3: number | null
+  profit_ros: number | null
+  profit_ros_value: number | null
+  profit_oper: number | null
+  profit_oper_value: number | null
+  turnover_inventory: number | null
+  turnover_cur_asset: number | null
+  turnover_receivable: number | null
+  liq_balance: number | null
+  liq_current: number | null
+  liq_quick: number | null
+  liq_cash_ratio: number | null
+  liq_current_value: number | null
+  liq_quick_value: number | null
+  liq_cash_value: number | null
+  stability: number | null
+  stability_short_debt: number | null
+  stability_debt_value: number | null
+  best_score: number | null
+  down_risk: number | null
+  liquidity_score: number | null
+  total_return: number | null
+  current_yield: number | null
+  size: number | null
+  complexity: number | null
+  // Bond description
+  description: string
+  event: string
+  coupon_rate: number | null
+  coupon_rate_after_put: number | null
+  coupon_size: number | null
+  early_redemption_call: string
+  years_to_maturity: number | null
+  dohod_duration: number | null
+  dohod_duration_md: number | null
+  simple_yield: number | null
+  for_qualified_only: boolean
+  tax_longterm_free: boolean
+  tax_free: boolean
+  tax_currency_free: boolean
+  sector_text: string
+  min_lot: number | null
+  frn_index: string
+  frn_index_add: number | null
+  frn_formula_text: string
+  fetched_at: string
+  updated_at: string
 }
 
 // --- API functions ---
@@ -273,6 +378,10 @@ export function useApi() {
       return apiFetch<AnalysisStats>(`/bonds/${secid}/analysis-stats`)
     },
 
+    getBulkAnalysisStats() {
+      return apiFetch<Record<string, AnalysisStats>>('/analyses/bulk-stats')
+    },
+
     getJobStatus(jobId: string) {
       return apiFetch<JobStatus>(`/jobs/${jobId}`)
     },
@@ -332,6 +441,20 @@ export function useApi() {
         headers,
         body: { secid },
       })
+    },
+
+    // Admin
+    clearCache() {
+      return apiFetch<{ deleted: number }>('/bonds/clear-cache', { method: 'POST' })
+    },
+
+    toggleIssuer(id: number) {
+      return apiFetch<{ emitter_id: number; hidden: boolean }>(`/issuers/${id}/toggle`, { method: 'POST' })
+    },
+
+    // Dohod.ru details
+    getDohodDetails(secid: string) {
+      return apiFetch<DohodBondData | { job_id: string; status: string }>(`/bonds/${secid}/dohod`)
     },
   }
 }

@@ -35,6 +35,8 @@ tags:
     description: AI-анализ облигаций
   - name: jobs
     description: Фоновые задачи и очередь
+  - name: dohod
+    description: Аналитика Dohod.ru (кредитные рейтинги, качество эмитента)
 
 paths:
   /health:
@@ -254,6 +256,43 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/OHLC'
+
+  /bonds/{secid}/dohod:
+    get:
+      tags: [dohod]
+      summary: Данные Dohod.ru для облигации
+      description: |
+        Возвращает аналитику с analytics.dohod.ru: кредитные рейтинги (АКРА, Эксперт РА, Fitch, Moody's, S&P),
+        качество эмитента, рентабельность, ликвидность, стабильность, ключевые метрики.
+        
+        При первом запросе ставит задачу в очередь (202 + job_id).
+        При повторном — возвращает кешированные данные (200, TTL 30 дней).
+      parameters:
+        - name: secid
+          in: path
+          required: true
+          schema:
+            type: string
+          example: SU26238RMFS4
+      responses:
+        '200':
+          description: Данные Dohod.ru (из кеша)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DohodBondData'
+        '202':
+          description: Задача в очереди, данные ещё загружаются
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [pending]
 
   /bonds/{secid}/analyze:
     post:
@@ -546,9 +585,41 @@ components:
       type: object
       properties:
         job_id: { type: string }
-        type: { type: string, enum: [ai_analysis, parse_bond, parse_emitter, sync_issuer] }
+        type: { type: string, enum: [ai_analysis, parse_bond, parse_emitter, sync_issuer, parse_dohod] }
         status: { type: string, enum: [pending, running, done, error] }
         result: { type: object, nullable: true }
         error: { type: string }
         created_at: { type: string, format: date-time }
         finished_at: { type: string, format: date-time, nullable: true }
+
+    DohodBondData:
+      type: object
+      description: Аналитические данные с dohod.ru для облигации
+      properties:
+        isin: { type: string, example: RU000A1038V6 }
+        secid: { type: string, example: SU26238RMFS4 }
+        issuer_name: { type: string }
+        issuer_sector: { type: string }
+        borrower_name: { type: string }
+        country: { type: string }
+        credit_rating: { type: number, description: "Рейтинг 0-10" }
+        credit_rating_text: { type: string, example: AAA }
+        akra: { type: string }
+        expert_ra: { type: string }
+        fitch: { type: string }
+        moody: { type: string }
+        sp: { type: string }
+        estimation_rating: { type: number }
+        estimation_rating_text: { type: string }
+        quality: { type: number, nullable: true, description: "Общее качество 0-10" }
+        quality_outside: { type: number, nullable: true }
+        quality_inside: { type: number, nullable: true }
+        quality_balance: { type: number, nullable: true }
+        quality_earnings: { type: number, nullable: true }
+        best_score: { type: number, nullable: true }
+        down_risk: { type: number, nullable: true }
+        liquidity_score: { type: number, nullable: true }
+        current_yield: { type: number, nullable: true }
+        total_return: { type: number, nullable: true }
+        fetched_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }

@@ -6,9 +6,9 @@
 PostgreSQL (реляционные данные)     MongoDB (документы и кэши)         Redis (ephemeral)
 ┌────────────────────────────┐     ┌──────────────────────────────┐   ┌────────────────────┐
 │ users                      │     │ bond_analyses                │   │ bonds:list (24h)   │
-│ (будущее: favorites,       │     │ bond_issuers                 │   │ bonds:{secid} (24h)│
-│  portfolios, watchlists)   │     │ bond_details (TTL 30d)       │   │ jobs:queue          │
-│                            │     │ emitter_details (TTL 30d)    │   │ sessions (JWT)      │
+│ favorites                  │     │ bond_issuers                 │   │ bonds:{secid} (24h)│
+│                            │     │ dohod_details (TTL 30d)      │   │ jobs:queue          │
+│                            │     │ issuer_ratings               │   │ sessions (JWT)      │
 │                            │     │ queue_jobs                   │   │                    │
 │                            │     │ chat_sessions                │   │                    │
 │                            │     │ chat_messages                │   │                    │
@@ -153,6 +153,57 @@ PostgreSQL (реляционные данные)     MongoDB (документы
 **Статусы:** pending → running → done | error  
 **Типы:** ai_analysis, parse_bond, parse_emitter, sync_issuer  
 **Дедупликация:** перед созданием проверяется findPendingJob(type, referenceId)
+
+---
+
+#### issuer_ratings — кредитные рейтинги эмитентов
+
+```json
+{
+  "_id": ObjectId,
+  "emitter_id": 712,
+  "issuer": "ОАО \"РЖД\"",
+  "agency": "АКРА",
+  "rating": "AA+(RU)",
+  "score": 9,
+  "updated_at": ISODate
+}
+```
+
+**Индексы:** emitter_id, (emitter_id + agency) unique  
+**Источник:** Автоматически из dohod.ru при запросе `/bonds/{secid}/dohod`  
+**Обновление:** При каждом FetchAndSave — извлекаются АКРА, Эксперт РА, Fitch, Moody's, S&P  
+**Score:** Берётся из `credit_rating` поля dohod.ru (1-10 шкала)  
+**Связь:** `emitter_id` из `bond_issuers` коллекции (MOEX disclosure API)
+
+---
+
+#### dohod_details — данные облигации с dohod.ru
+
+```json
+{
+  "_id": ObjectId,
+  "isin": "RU000A0JSGV0",
+  "secid": "RU000A0JSGV0",
+  "issuer_name": "ОАО \"РЖД\"",
+  "credit_rating": 9,
+  "credit_rating_text": "AA",
+  "akra": "AA+(RU)",
+  "expert_ra": "ruAAA",
+  "quality": 4.0,
+  "description": "Описание эмитента...",
+  "event": "право продать (put)",
+  "coupon_rate": 9.8,
+  "simple_yield": 15.15,
+  "fetched_at": ISODate,
+  "updated_at": ISODate
+}
+```
+
+**Индексы:** isin (unique), secid  
+**TTL:** 30 дней  
+**Источник:** HTTP парсинг `__NUXT_DATA__` с analytics.dohod.ru  
+**Содержит:** ~80 полей (рейтинги, качество, финансы эмитента, параметры облигации)
 
 ---
 

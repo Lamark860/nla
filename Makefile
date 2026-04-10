@@ -1,4 +1,4 @@
-.PHONY: build run test test-v test-cover lint clean docker-up docker-down docker-rebuild docker-logs
+.PHONY: build run test test-v test-cover lint clean docker-up docker-down docker-rebuild docker-logs sync-ratings sync-ratings-all
 
 # Build
 build:
@@ -39,6 +39,13 @@ docker-test:
 # Cleanup
 clean:
 	rm -rf bin/ coverage.out
+
+# Sync ratings from dohod.ru for all emitters
+sync-ratings:
+	MONGO_URI=mongodb://localhost:27018 REDIS_ADDR=localhost:6380 go run ./cmd/sync-ratings
+
+sync-ratings-all:
+	MONGO_URI=mongodb://localhost:27018 REDIS_ADDR=localhost:6380 go run ./cmd/sync-ratings -only-missing=false
 
 # Dev helpers
 deps:

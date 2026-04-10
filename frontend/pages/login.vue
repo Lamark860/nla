@@ -1,44 +1,47 @@
 <template>
-  <div class="max-w-md mx-auto mt-12">
-    <div class="card p-8">
-      <h1 class="text-xl font-bold text-slate-900 dark:text-white mb-6 text-center">
-        {{ isRegister ? 'Регистрация' : 'Вход' }}
-      </h1>
+  <div class="row justify-content-center mt-5">
+    <div class="col-12 col-sm-8 col-md-6 col-lg-4">
+      <div class="card p-4">
+        <h1 class="h5 fw-bold text-center mb-4">
+          {{ isRegister ? 'Регистрация' : 'Вход' }}
+        </h1>
 
-      <form @submit.prevent="submit" class="space-y-4">
-        <div v-if="isRegister">
-          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Имя</label>
-          <input v-model="name" type="text" class="input w-full" placeholder="Ваше имя" />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
-          <input v-model="email" type="email" class="input w-full" placeholder="email@example.com" required />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Пароль</label>
-          <input v-model="password" type="password" class="input w-full" placeholder="Минимум 6 символов" required />
-        </div>
+        <form @submit.prevent="submit" class="d-flex flex-column gap-3">
+          <div v-if="isRegister">
+            <label class="form-label small">Имя</label>
+            <input v-model="name" type="text" class="form-control" placeholder="Ваше имя" />
+          </div>
+          <div>
+            <label class="form-label small">Email</label>
+            <input v-model="email" type="email" class="form-control" placeholder="email@example.com" required />
+          </div>
+          <div>
+            <label class="form-label small">Пароль</label>
+            <input v-model="password" type="password" class="form-control" placeholder="Минимум 6 символов" required />
+          </div>
 
-        <div v-if="error" class="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">
-          {{ error }}
+          <div v-if="error" class="alert alert-danger small py-2 mb-0">
+            {{ error }}
+          </div>
+
+          <button
+            type="submit"
+            :disabled="submitting"
+            class="btn btn-primary w-100"
+          >
+            {{ submitting ? 'Подождите...' : isRegister ? 'Зарегистрироваться' : 'Войти' }}
+          </button>
+        </form>
+
+        <div class="mt-4 text-center">
+          <button
+            @click="isRegister = !isRegister; error = ''"
+            class="btn btn-link btn-sm text-decoration-none"
+            style="color: var(--nla-text-secondary)"
+          >
+            {{ isRegister ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Регистрация' }}
+          </button>
         </div>
-
-        <button
-          type="submit"
-          :disabled="submitting"
-          class="btn-primary w-full text-sm"
-        >
-          {{ submitting ? 'Подождите...' : isRegister ? 'Зарегистрироваться' : 'Войти' }}
-        </button>
-      </form>
-
-      <div class="mt-5 text-center">
-        <button
-          @click="isRegister = !isRegister; error = ''"
-          class="text-sm text-primary-600 dark:text-primary-400 hover:underline"
-        >
-          {{ isRegister ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Регистрация' }}
-        </button>
       </div>
     </div>
   </div>
@@ -75,7 +78,6 @@ async function submit() {
   }
 }
 
-// Redirect if already logged in
 watch(() => auth.isLoggedIn.value, (loggedIn) => {
   if (loggedIn) router.push('/')
 }, { immediate: true })

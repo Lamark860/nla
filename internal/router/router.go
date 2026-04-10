@@ -44,6 +44,13 @@ func New(h *handler.Handler) http.Handler {
 			r.Get("/bonds/{secid}", h.Bond.GetBond)
 			r.Get("/bonds/{secid}/coupons", h.Bond.GetBondCoupons)
 			r.Get("/bonds/{secid}/history", h.Bond.GetBondHistory)
+			r.Post("/bonds/clear-cache", h.Bond.ClearCache)
+			r.Post("/issuers/{id}/toggle", h.Bond.ToggleIssuer)
+		}
+
+		// Dohod.ru details (public)
+		if h.Details != nil {
+			r.Get("/bonds/{secid}/dohod", h.Details.GetDohodDetails)
 		}
 
 		// AI Analysis & Queue (public read, auth for write)
@@ -51,6 +58,7 @@ func New(h *handler.Handler) http.Handler {
 			r.Get("/bonds/{secid}/analyses", h.Analysis.GetAnalyses)
 			r.Get("/bonds/{secid}/analysis-stats", h.Analysis.GetAnalysisStats)
 			r.Get("/analyses/{id}", h.Analysis.GetAnalysis)
+			r.Get("/analyses/bulk-stats", h.Analysis.GetBulkAnalysisStats)
 			r.Get("/jobs/{id}", h.Analysis.GetJobStatus)
 			r.Get("/queue/stats", h.Analysis.GetQueueStats)
 			r.Post("/bonds/{secid}/analyze", h.Analysis.StartAnalysis)

@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"nla/internal/client/openai"
@@ -11,35 +13,42 @@ import (
 	mongoRepo "nla/internal/mongo"
 )
 
-// Predefined agents
+// Predefined agents (matching ASH config)
 var defaultAgents = []model.Agent{
 	{
 		Type:        "analyst",
 		Name:        "Финансовый аналитик",
-		Description: "Анализ облигаций, кредитные рейтинги, стратегии",
-		Icon:        "chart-bar",
-		PromptFile:  "",
+		Description: "Помогает с анализом облигаций, доходностью, рисками и кредитным качеством эмитентов",
+		Icon:        "bi-graph-up",
+		PromptFile:  "analyst",
 	},
 	{
-		Type:        "educator",
-		Name:        "Обучение",
-		Description: "Объяснение терминов, принципы инвестирования",
-		Icon:        "academic-cap",
-		PromptFile:  "",
+		Type:        "report",
+		Name:        "Генератор отчётов",
+		Description: "Превращает черновики и заметки в структурированные профессиональные документы",
+		Icon:        "bi-file-earmark-text",
+		PromptFile:  "report",
+	},
+	{
+		Type:        "support",
+		Name:        "Анализ поддержки",
+		Description: "Анализирует чаты поддержки, выявляет проблемы и предлагает решения",
+		Icon:        "bi-headset",
+		PromptFile:  "support",
 	},
 }
 
-var agentSystemPrompts = map[string]string{
-	"analyst": `Ты — профессиональный финансовый аналитик по облигациям РФ. 
-Специализация: корпоративные, субфедеральные, муниципальные облигации, ОФЗ.
-Отвечай кратко и конкретно. Используй данные MOEX когда уместно.
-Формат ответа: обычный текст с абзацами, без markdown-заголовков.
-Язык: русский.`,
+// promptsDir is the directory containing prompt .txt files
+var promptsDir = "data/prompts"
 
-	"educator": `Ты — финансовый преподаватель, объясняешь сложные термины простым языком.
-Специализация: облигации, фиксированный доход, кредитные рейтинги, дюрация, доходность.
-Используй аналогии и примеры из реальной жизни. Формат: обычный текст.
-Язык: русский.`,
+// loadPrompt reads a prompt file; falls back to a basic system message
+func loadPrompt(name string) string {
+	path := filepath.Join(promptsDir, name+".txt")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "Ты — полезный помощник. Отвечай кратко и конкретно. Язык: русский."
+	}
+	return string(data)
 }
 
 type ChatService struct {
@@ -154,11 +163,16 @@ func (s *ChatService) SendMessage(ctx context.Context, sessionID string, content
 func (s *ChatService) buildOpenAIMessages(agentType string, history []model.ChatMessage) []openai.ChatMessage {
 	var messages []openai.ChatMessage
 
-	// System prompt
-	systemPrompt, ok := agentSystemPrompts[agentType]
-	if !ok {
-		systemPrompt = agentSystemPrompts["analyst"]
+	// Load system prompt from file
+	promptFile := "analyst" // default
+	for _, a := range defaultAgents {
+		if a.Type == agentType {
+			promptFile = a.PromptFile
+			break
+		}
 	}
+	systemPrompt := loadPrompt(promptFile)
+
 	messages = append(messages, openai.ChatMessage{
 		Role:    "system",
 		Content: systemPrompt,

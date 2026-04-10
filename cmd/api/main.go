@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"nla/internal/client/dohod"
 	"nla/internal/client/moex"
 	"nla/internal/client/openai"
 	"nla/internal/config"
@@ -64,9 +65,11 @@ func main() {
 	ratingRepo := mongoRepo.NewRatingRepo(mongoDB)
 	chatRepo := mongoRepo.NewChatRepo(mongoDB)
 	issuerRepo := mongoRepo.NewIssuerRepo(mongoDB)
+	detailsRepo := mongoRepo.NewDetailsRepo(mongoDB)
 
 	moexClient := moex.NewClient()
-	bondService := service.NewBondService(moexClient, rdb, issuerRepo)
+	dohodClient := dohod.NewClient()
+	bondService := service.NewBondService(moexClient, rdb, issuerRepo, ratingRepo)
 
 	// OpenAI client
 	openaiClient := openai.NewClient(openai.Config{
@@ -82,6 +85,7 @@ func main() {
 	queueService := service.NewQueueService(queueRepo)
 	ratingService := service.NewRatingService(ratingRepo)
 	chatService := service.NewChatService(chatRepo, openaiClient)
+	detailsService := service.NewDetailsService(dohodClient, detailsRepo, ratingRepo, issuerRepo)
 
 	// Handlers
 	h := handler.New(authService, cfg.JWTSecret)
@@ -90,6 +94,7 @@ func main() {
 	h.SetRatingHandler(handler.NewRatingHandler(ratingService))
 	h.SetChatHandler(handler.NewChatHandler(chatService))
 	h.SetFavoriteHandler(handler.NewFavoriteHandler(favoriteRepo))
+	h.SetDetailsHandler(handler.NewDetailsHandler(detailsService, queueService, bondService))
 
 	// Run migrations
 	if err := database.RunMigrations(ctx, pgPool); err != nil {
@@ -112,7 +117,7 @@ func main() {
 	// Queue worker (background goroutine)
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	defer workerCancel()
-	w := queue.NewWorker(queueService, analysisService, bondService)
+	w := queue.NewWorker(queueService, analysisService, bondService, detailsService)
 	go w.Run(workerCtx)
 
 	// Server

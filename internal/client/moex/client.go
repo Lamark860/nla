@@ -69,11 +69,11 @@ func (c *Client) GetSecurities(ctx context.Context) (map[string]any, error) {
 	})
 }
 
-// GetSecurity fetches a single bond by SECID
+// GetSecurity fetches a single bond by SECID (including marketdata_yields)
 func (c *Client) GetSecurity(ctx context.Context, secid string) (map[string]any, error) {
 	path := fmt.Sprintf("engines/stock/markets/bonds/securities/%s.json", secid)
 	return c.Get(ctx, path, map[string]string{
-		"iss.only": "securities,marketdata",
+		"iss.only": "securities,marketdata,marketdata_yields",
 	})
 }
 

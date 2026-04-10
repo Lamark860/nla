@@ -109,6 +109,16 @@ func (h *AnalysisHandler) GetAnalysisStats(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, stats)
 }
 
+// GetBulkAnalysisStats GET /api/v1/analyses/bulk-stats — stats for all analyzed bonds
+func (h *AnalysisHandler) GetBulkAnalysisStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.analysisSvc.GetBulkStats(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
 // GetJobStatus GET /api/v1/jobs/{id} — poll job status
 func (h *AnalysisHandler) GetJobStatus(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
