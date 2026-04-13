@@ -99,7 +99,7 @@ nla/
 │   ├── config/config.go         # Environment config (DB, Redis, OpenAI, JWT)
 │   ├── database/                # DB connections (postgres, mongo, redis)
 │   ├── client/
-│   │   ├── moex/client.go       # MOEX ISS API client (5 endpoints + GetDisclosure)
+│   │   ├── moex/client.go       # MOEX ISS API client (5 endpoints + GetDisclosure + GetCCIRatings)
 │   │   ├── openai/client.go     # OpenAI client (retry, reasoning models)
 │   │   └── dohod/client.go      # Dohod.ru Nuxt SSR parser (HTTP + __NUXT_DATA__)
 │   ├── handler/
@@ -125,7 +125,7 @@ nla/
 │   │   └── favorite.go          # PostgreSQL favorites queries
 │   ├── service/
 │   │   ├── auth.go              # Auth business logic
-│   │   ├── bond.go              # MOEX data + cache + calculations + issuer grouping + SyncMissingIssuers
+│   │   ├── bond.go              # MOEX data + cache + calculations + issuer grouping + SyncMissingIssuers + SyncMissingRatingsFromMoex
 │   │   ├── analysis.go          # AI analysis + rating parser
 │   │   ├── details.go           # Dohod.ru service (cache + retry + save + rating sync + emitter name backfill)
 │   │   ├── rating.go            # Credit ratings CRUD + GetAll by emitter_id
@@ -141,8 +141,8 @@ nla/
 │   │   ├── index.vue            # Bond list with sort/pagination
 │   │   ├── bonds/[secid].vue    # Bond detail with tabs
 │   │   └── bonds/monthly.vue    # Monthly coupons
-│   ├── components/              # BondTable, BondAiTab, charts, etc.
-│   └── composables/             # useApi.ts, useFormat.ts
+│   ├── components/              # BondTable, BondAiTab, IssuerCardGrid, IssuerFilters, charts, etc.
+│   └── composables/             # useApi.ts, useFormat.ts, useAuth.ts, useFavorites.ts
 ├── nginx/nginx.conf             # Reverse proxy (/ → frontend, /api → Go)
 ├── docker-compose.yml           # 6 services
 ├── Dockerfile                   # Multi-stage Go build
@@ -206,32 +206,33 @@ dohod.ru fetch → DetailsService.FetchAndSave()
               issuer_ratings collection (key: emitter_id + agency)
                         ↓
               backfill emitter_name → bond_issuers.UpdateEmitterName()
+
+MOEX CCI API → SyncMissingRatingsFromMoex() (fallback)
+                        ↓
+              /iss/cci/rating/companies/ecbd_{EMITTER_ID}.json
+                        ↓
+              issuer_ratings collection (same format)
 ```
 
 - Ratings stored by `emitter_id` (int64), NOT by name
 - `emitter_id` resolved from `bond_issuers` (MOEX disclosure API)
 - Score comes from dohod.ru `credit_rating` field (1-10 scale)
-- Agencies: АКРА, Эксперт РА, Fitch, Moody's, S&P, ДОХОДЪ
+- Agencies: АКРА, Эксперт РА, НКР, НРА, Fitch, Moody's, S&P, ДОХОДЪ
+- MOEX CCI adds: НКР, НРА agencies (not available from dohod.ru)
 - API `/ratings` returns `map[emitter_id_string]IssuerRatingResponse`
 - Frontend maps directly by `emitter_id` (no fuzzy matching)
 - AI ratings: 0-100 float64 scale (parsed from `[RATING:XX.X]`)
+- `ratingChipStyle()` in useFormat.ts — color by tier: AAA→green, AA→blue, A→teal, BBB→yellow, BB→orange, B/C/D→red
 
 ## Issuer Sync Architecture
 
 ```
-API startup → BondService.SyncMissingIssuers() (background goroutine)
-                        ↓
-              getAllBonds() (MOEX cache) vs IssuerRepo.GetAllSecids()
-                        ↓
-              for missing: MOEX GetDisclosure() → EMITTER_ID
-                        ↓
-              IssuerRepo.Upsert() → bond_issuers
+API startup → goroutine:
+  1. BondService.SyncMissingIssuers() (2 min timeout)
+     getAllBonds() vs IssuerRepo.GetAllSecids() → MOEX GetDisclosure() → Upsert
+  2. BondService.SyncMissingRatingsFromMoex() (3 min timeout)
+     IssuerRepo.GetAll() vs RatingRepo.GetDistinctEmitterIDs() → MOEX CCI API → Upsert ratings
 ```
-
-- Runs once on API startup (2 min timeout)
-- Finds bonds in MOEX but absent from `bond_issuers`
-- Fetches `EMITTER_ID` from MOEX description API (200ms delay between requests)
-- Emitter names backfilled from `issuer_ratings` or from dohod.ru on next fetch
 
 ## Architecture Pattern
 
@@ -304,6 +305,21 @@ Reference UI: `http://postroika.test:8081/bond`
 
 ## Key Features Added (v0.9+)
 
+### MOEX CCI Rating Integration (v0.10)
+- `GetCCIRatings()` in moex/client.go — fetches from `/iss/cci/rating/companies/ecbd_{ID}.json`
+- `SyncMissingRatingsFromMoex()` — finds unrated emitters, fetches via CCI API (200ms delay)
+- Runs on API startup after SyncMissingIssuers (3 min timeout)
+- Added agencies: НКР, НРА (not available from dohod.ru)
+- Stats: 474 emitters with ratings, 587 records total
+
+### Rating Display Redesign (v0.10)
+- `ratingChipStyle()` moved to useFormat.ts — shared across all components
+- IssuerCardGrid: compact rating-only badges (no agency text, agency in tooltip)
+- [secid].vue: ratings inline with ISIN/Код/Тип/Валюта row (single flex line)
+- IssuerFilters: static rating legend — agency signature examples (AAA(RU)/АКРА, ruA+/Эксперт РА, etc.)
+- NULL ratings filtered from display
+- "—" badge for emitters without ratings
+
 ### Issuer Auto-Sync
 - `SyncMissingIssuers()` runs on API startup — new MOEX bonds auto-added to `bond_issuers`
 - Emitter names auto-backfilled from dohod.ru via `updateRatingsFromDohod()`
@@ -318,7 +334,7 @@ Reference UI: `http://postroika.test:8081/bond`
 - `ResetStaleJobs()` on worker start — resets "running" jobs older than 3 minutes to "pending"
 
 ### Frontend
-- Unified rating colors: `aiRatingStyle()`, `aiRatingStyleSoft()`, `issuerRatingBg()` in useFormat.ts
+- Unified rating colors: `aiRatingStyle()`, `aiRatingStyleSoft()`, `ratingChipStyle()`, `issuerRatingBg()` in useFormat.ts
 - Markdown tables in BondAiTab and Chat with dark mode support
 - Text readability: adjusted `--nla-text-muted` (light: `#64748b`, dark: `#8b9bb5`)
 - Background softened: `--nla-bg` light → `#f8f9fb`

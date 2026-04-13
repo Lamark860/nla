@@ -1,5 +1,31 @@
 # CHANGELOG — NLA (ASH → NLA Migration)
 
+## v0.10.0 (2026-04-10) — MOEX CCI Ratings & Rating Display Redesign
+
+### MOEX CCI Rating Integration (Backend)
+- **`GetCCIRatings()`** — новый метод в `moex/client.go`, fetch `/iss/cci/rating/companies/ecbd_{EMITTER_ID}.json`
+- **`CCIRating` struct** — AgencyName, RatingValue, RatingDate из extended JSON формата
+- **`SyncMissingRatingsFromMoex()`** — находит эмитентов без рейтингов, подтягивает из MOEX CCI (200ms delay, 3 min timeout)
+- Запускается на старте API после SyncMissingIssuers (последовательно в одной горутине)
+- Добавлены агентства: НКР (11 рейтингов), НРА (8) — ранее только АКРА, Эксперт РА, ДОХОДЪ
+- Итого: 474 эмитента с рейтингами, 587 записей (Эксперт РА: 219, АКРА: 209, ДОХОДЪ: 138, НКР: 11, НРА: 8)
+
+### Rating Display Redesign (Frontend)
+- **`ratingChipStyle()`** — вынесен в `useFormat.ts` (из IssuerCardGrid и [secid].vue)
+- Цвета по тирам: AAA→зелёный, AA→синий, A→teal, BBB→жёлтый, BB→оранжевый, B/C/D→красный, Отозван→серый
+- **IssuerCardGrid** — компактные бейджи только с рейтингом (агентство в tooltip), font 11px monospace
+- **[secid].vue** — рейтинги в одну строку с ISIN/Код/Тип/Валюта (без отдельного блока)
+- **IssuerFilters** — статическая легенда агентств (AAA(RU)/АКРА, ruA+/Эксперт РА, BB+.ru/НКР, BBB|ru|/НРА, AA/ДОХОДЪ, Baa1/Moody's)
+- NULL-рейтинги отфильтрованы из отображения
+- «—» бейдж для эмитентов без рейтингов
+- «Рейтинг не присвоен» на детальной странице если нет рейтингов
+
+### Cleanup
+- Удалены неиспользуемые CSS классы: `.rating-grid`, `.rating-chip*` из main.css
+- Удалён дублированный `ratingChipStyle()` из IssuerCardGrid.vue и [secid].vue
+
+---
+
 ## v0.9.0 (2026-04-10) — Issuer Auto-Sync, Ratings & AI Improvements
 
 ### Issuer Auto-Sync
