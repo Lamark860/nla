@@ -1,6 +1,11 @@
 # Binaries
+/api
 /nla-api
 *.exe
+
+# Test artifacts
+coverage.out
+*.test
 
 # Environment
 .env

@@ -2,10 +2,16 @@ package database
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 func NewPostgres(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	poolCfg, err := pgxpool.ParseConfig(dsn)
@@ -29,29 +35,26 @@ func NewPostgres(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 }
 
 func RunMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	migrations := []string{
-		`CREATE TABLE IF NOT EXISTS users (
-			id          BIGSERIAL PRIMARY KEY,
-			email       VARCHAR(255) NOT NULL UNIQUE,
-			password    VARCHAR(255) NOT NULL,
-			name        VARCHAR(255) NOT NULL DEFAULT '',
-			created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)`,
-		`CREATE TABLE IF NOT EXISTS favorites (
-			id         BIGSERIAL PRIMARY KEY,
-			user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			secid      VARCHAR(64) NOT NULL,
-			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			UNIQUE(user_id, secid)
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id)`,
+	entries, err := migrationsFS.ReadDir("migrations")
+	if err != nil {
+		return fmt.Errorf("read migrations dir: %w", err)
 	}
 
-	for _, m := range migrations {
-		if _, err := pool.Exec(ctx, m); err != nil {
-			return fmt.Errorf("migration failed: %w", err)
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sql") {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		sql, err := migrationsFS.ReadFile("migrations/" + name)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", name, err)
+		}
+		if _, err := pool.Exec(ctx, string(sql)); err != nil {
+			return fmt.Errorf("apply %s: %w", name, err)
 		}
 	}
 

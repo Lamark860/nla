@@ -1,5 +1,11 @@
 # CLAUDE.md — NLA Project Context
 
+## Working preferences
+
+- Persistent context lives **in this file (or other repo docs)**, not in private session memory. If something is worth remembering across sessions, write it here.
+- Repo is local-only — never pushed to a remote. Don't escalate "secret leaked into git history" findings.
+- Conversational replies in Russian; code/identifiers/paths in English.
+
 ## Project
 
 **NLA** — анализатор финансовых инструментов. Новый стек, эволюция проекта ASH.
