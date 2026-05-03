@@ -227,7 +227,9 @@ MOEX CCI API → SyncMissingRatingsFromMoex() (fallback)
 
 - Ratings stored by `emitter_id` (int64), NOT by name
 - `emitter_id` resolved from `bond_issuers` (MOEX disclosure API)
-- Score comes from dohod.ru `credit_rating` field (1-10 scale)
+- **Two scores per record:** `Score` (legacy 1-10, kept for API/frontend filters), `ScoreOrd` (canonical 1-22). Use `ScoreOrd` for any sorting / cross-agency comparison — `Score` collapses BBB- and BB+ into the same bucket
+- Normalisation lives in `service/rating_score.go::NormalizeRating(text) → (ord, tier)` — handles АКРА `AAA(RU)`, Эксперт РА `ruAAA`, НКР `AAA.ru`, НРА `AAA|ru|`, Moody's `Aaa/Baa1/...`, S&P/Fitch bare letters, ДОХОДЪ numeric `7`/`7/10`, outlook stripping
+- On API startup `RatingService.RecomputeAllScores` re-runs normalisation across all stored ratings (idempotent)
 - Agencies: АКРА, Эксперт РА, НКР, НРА, Fitch, Moody's, S&P, ДОХОДЪ
 - MOEX CCI adds: НКР, НРА agencies (not available from dohod.ru)
 - API `/ratings` returns `map[emitter_id_string]IssuerRatingResponse`

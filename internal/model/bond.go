@@ -219,7 +219,12 @@ type BondIssuer struct {
 	UpdatedAt   time.Time `json:"updated_at" bson:"updated_at"`
 }
 
-// IssuerRating holds credit rating for an issuer
+// IssuerRating holds credit rating for an issuer.
+//
+// Score is the legacy 1-10 scale (kept for API/frontend compatibility).
+// ScoreOrd is the canonical 1-22 ordinal scale produced by NormalizeRating —
+// use this for any sorting or cross-agency comparison; Score collapses too many
+// distinct ratings (BBB- and BB+ both map to 3) to be meaningful.
 type IssuerRating struct {
 	ID        string    `json:"id" bson:"_id,omitempty"`
 	EmitterID int64     `json:"emitter_id" bson:"emitter_id"`
@@ -227,6 +232,7 @@ type IssuerRating struct {
 	Agency    string    `json:"agency" bson:"agency"`
 	Rating    string    `json:"rating" bson:"rating"`
 	Score     int       `json:"score" bson:"score"`
+	ScoreOrd  int       `json:"score_ord" bson:"score_ord"`
 	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
 }
 

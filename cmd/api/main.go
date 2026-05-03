@@ -111,6 +111,15 @@ func main() {
 		log.Println("Credit ratings seeded")
 	}
 
+	// Recompute Score/ScoreOrd for ratings persisted under the old (buggy) scoring
+	recomputeCtx, recomputeCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer recomputeCancel()
+	if n, err := ratingService.RecomputeAllScores(recomputeCtx); err != nil {
+		log.Printf("WARNING: rating recompute failed: %v", err)
+	} else if n > 0 {
+		log.Printf("Recomputed scores for %d ratings", n)
+	}
+
 	// Router
 	r := router.New(h)
 

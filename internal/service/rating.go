@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"nla/internal/model"
 	mongoRepo "nla/internal/mongo"
@@ -97,11 +98,61 @@ func (s *RatingService) GetAll(ctx context.Context) (map[string]*model.IssuerRat
 }
 
 func (s *RatingService) Upsert(ctx context.Context, rating *model.IssuerRating) error {
+	fillScores(rating)
 	return s.repo.Upsert(ctx, rating)
 }
 
 func (s *RatingService) BulkUpsert(ctx context.Context, ratings []model.IssuerRating) error {
+	for i := range ratings {
+		fillScores(&ratings[i])
+	}
 	return s.repo.BulkUpsert(ctx, ratings)
+}
+
+// fillScores ensures ScoreOrd / Score are derived from Rating text whenever the
+// caller didn't supply them. Centralising this in the service layer keeps every
+// write path (HTTP handler, dohod sync, MOEX CCI sync, recompute) in agreement.
+func fillScores(r *model.IssuerRating) {
+	if r.Rating == "" || r.ScoreOrd != 0 {
+		return
+	}
+	r.ScoreOrd, _ = NormalizeRating(r.Rating)
+	if r.Score == 0 {
+		r.Score = LegacyScore10(r.ScoreOrd)
+	}
+}
+
+// RecomputeAllScores walks every existing rating and rewrites Score/ScoreOrd
+// using the current NormalizeRating implementation. Intended to be called once
+// at API startup so that data persisted under the old (buggy) ratingToScore
+// mapping is brought up to date.
+//
+// Records whose Rating text NormalizeRating cannot parse (ord == 0) are left
+// untouched so that any manually-entered legacy Score is not silently zeroed.
+func (s *RatingService) RecomputeAllScores(ctx context.Context) (int, error) {
+	all, err := s.repo.GetAll(ctx)
+	if err != nil {
+		return 0, err
+	}
+	updated := 0
+	for i := range all {
+		ord, _ := NormalizeRating(all[i].Rating)
+		if ord == 0 {
+			continue
+		}
+		legacy := LegacyScore10(ord)
+		if all[i].ScoreOrd == ord && all[i].Score == legacy {
+			continue
+		}
+		all[i].ScoreOrd = ord
+		all[i].Score = legacy
+		if err := s.repo.Upsert(ctx, &all[i]); err != nil {
+			log.Printf("[rating-recompute] WARN: emitter %d agency %q: %v", all[i].EmitterID, all[i].Agency, err)
+			continue
+		}
+		updated++
+	}
+	return updated, nil
 }
 
 func (s *RatingService) Delete(ctx context.Context, issuer, agency string) error {

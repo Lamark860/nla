@@ -124,61 +124,29 @@ func (s *DetailsService) updateRatingsFromDohod(ctx context.Context, data *model
 	}
 
 	var ratings []model.IssuerRating
-	if data.AKRA != "" {
-		ratings = append(ratings, model.IssuerRating{
-			EmitterID: emitterID,
-			Issuer:    issuerName,
-			Agency:    "АКРА",
-			Rating:    data.AKRA,
-			Score:     ratingToScore(data.AKRA),
-		})
-	}
-	if data.ExpertRA != "" {
-		ratings = append(ratings, model.IssuerRating{
-			EmitterID: emitterID,
-			Issuer:    issuerName,
-			Agency:    "Эксперт РА",
-			Rating:    data.ExpertRA,
-			Score:     ratingToScore(data.ExpertRA),
-		})
-	}
-	if data.Fitch != "" {
-		ratings = append(ratings, model.IssuerRating{
-			EmitterID: emitterID,
-			Issuer:    issuerName,
-			Agency:    "Fitch",
-			Rating:    data.Fitch,
-			Score:     ratingToScore(data.Fitch),
-		})
-	}
-	if data.Moody != "" {
-		ratings = append(ratings, model.IssuerRating{
-			EmitterID: emitterID,
-			Issuer:    issuerName,
-			Agency:    "Moody's",
-			Rating:    data.Moody,
-			Score:     ratingToScore(data.Moody),
-		})
-	}
-	if data.SP != "" {
-		ratings = append(ratings, model.IssuerRating{
-			EmitterID: emitterID,
-			Issuer:    issuerName,
-			Agency:    "S&P",
-			Rating:    data.SP,
-			Score:     ratingToScore(data.SP),
-		})
-	}
-
-	// If dohod.ru provides its own composite credit_rating, use it as the score for agency ratings
-	dohodScore := int(data.CreditRating)
-	if dohodScore > 0 {
-		for i := range ratings {
-			ratings[i].Score = dohodScore
+	addRating := func(agency, ratingText string) {
+		if ratingText == "" {
+			return
 		}
+		ord, _ := NormalizeRating(ratingText)
+		ratings = append(ratings, model.IssuerRating{
+			EmitterID: emitterID,
+			Issuer:    issuerName,
+			Agency:    agency,
+			Rating:    ratingText,
+			Score:     LegacyScore10(ord),
+			ScoreOrd:  ord,
+		})
 	}
 
-	// Always save ДОХОДЪ internal rating when credit_rating > 0 (even if no agency ratings exist)
+	addRating("АКРА", data.AKRA)
+	addRating("Эксперт РА", data.ExpertRA)
+	addRating("Fitch", data.Fitch)
+	addRating("Moody's", data.Moody)
+	addRating("S&P", data.SP)
+
+	// ДОХОДЪ own composite (1-10). Save when present, even without any agency rating.
+	dohodScore := int(data.CreditRating)
 	if dohodScore > 0 {
 		ratingText := data.CreditRatingText
 		if ratingText == "" {
@@ -187,13 +155,7 @@ func (s *DetailsService) updateRatingsFromDohod(ctx context.Context, data *model
 		if ratingText == "" {
 			ratingText = fmt.Sprintf("%d/10", dohodScore)
 		}
-		ratings = append(ratings, model.IssuerRating{
-			EmitterID: emitterID,
-			Issuer:    issuerName,
-			Agency:    "ДОХОДЪ",
-			Rating:    ratingText,
-			Score:     dohodScore,
-		})
+		addRating("ДОХОДЪ", ratingText)
 	}
 
 	for _, r := range ratings {
@@ -203,7 +165,7 @@ func (s *DetailsService) updateRatingsFromDohod(ctx context.Context, data *model
 	}
 
 	if len(ratings) > 0 {
-		log.Printf("Updated %d ratings for emitter %d %q from dohod.ru (score=%d)", len(ratings), emitterID, issuerName, dohodScore)
+		log.Printf("Updated %d ratings for emitter %d %q from dohod.ru", len(ratings), emitterID, issuerName)
 	}
 }
 
@@ -299,54 +261,3 @@ func (s *DetailsService) SyncAllRatings(ctx context.Context, onlyMissing bool, d
 	return result, nil
 }
 
-// ratingToScore converts a rating string like "AAA(RU)", "ruAA+", "AA-" to a 1-10 score.
-func ratingToScore(rating string) int {
-	// Normalize: remove prefixes and suffixes like (RU), ru, (EXP)
-	r := rating
-	for _, prefix := range []string{"ru", "Ru", "RU"} {
-		if len(r) > len(prefix) && r[:len(prefix)] == prefix {
-			r = r[len(prefix):]
-			break
-		}
-	}
-	// Remove parenthetical suffixes like (RU), (EXP)
-	for i := range r {
-		if r[i] == '(' {
-			r = r[:i]
-			break
-		}
-	}
-
-	switch r {
-	case "AAA":
-		return 10
-	case "AA+":
-		return 9
-	case "AA":
-		return 8
-	case "AA-":
-		return 7
-	case "A+":
-		return 6
-	case "A":
-		return 5
-	case "A-":
-		return 5
-	case "BBB+":
-		return 4
-	case "BBB":
-		return 4
-	case "BBB-":
-		return 3
-	case "BB+":
-		return 3
-	case "BB":
-		return 2
-	case "BB-":
-		return 2
-	case "B+", "B", "B-":
-		return 1
-	default:
-		return 0
-	}
-}

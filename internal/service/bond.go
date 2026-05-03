@@ -243,13 +243,15 @@ func (s *BondService) GetBondsGroupedByIssuer(ctx context.Context, monthlyOnly b
 		})
 	}
 
-	// Sort by credit rating (highest first), then bond count
+	// Sort by credit rating (highest first), then bond count.
+	// Uses ScoreOrd (1-22 normalized scale) so cross-agency comparison is correct —
+	// the legacy Score (1-10) collapses BBB- and BB+ into the same bucket.
 	ratingScoreMap := make(map[int64]int)
 	if s.ratingRepo != nil {
 		allRatings, _ := s.ratingRepo.GetAll(ctx)
 		for _, r := range allRatings {
-			if r.Score > ratingScoreMap[r.EmitterID] {
-				ratingScoreMap[r.EmitterID] = r.Score
+			if r.ScoreOrd > ratingScoreMap[r.EmitterID] {
+				ratingScoreMap[r.EmitterID] = r.ScoreOrd
 			}
 		}
 	}

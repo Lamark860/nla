@@ -130,11 +130,14 @@ func (s *BondService) SyncMissingRatingsFromMoex(ctx context.Context) (int, erro
 		}
 
 		for _, cr := range cciRatings {
+			ord, _ := NormalizeRating(cr.RatingValue)
 			rating := &model.IssuerRating{
 				EmitterID: m.emitterID,
 				Issuer:    m.emitterName,
 				Agency:    cr.AgencyName,
 				Rating:    cr.RatingValue,
+				Score:     LegacyScore10(ord),
+				ScoreOrd:  ord,
 			}
 			if err := s.ratingRepo.Upsert(ctx, rating); err != nil {
 				log.Printf("[rating-sync] WARN: upsert rating emitter %d %s: %v", m.emitterID, cr.AgencyName, err)

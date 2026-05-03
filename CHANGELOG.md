@@ -1,5 +1,30 @@
 # CHANGELOG — NLA (ASH → NLA Migration)
 
+## v0.11.0 (2026-05-03) — Cross-agency rating normalisation
+
+### Bug fixes
+- **`ratingToScore` collapsed BBB- and BB+ into the same score (3)** — losing the most important boundary in credit risk (investment grade ↔ speculative). Same for A/A-, BBB+/BBB, BB/BB- pairs
+- **НКР (`BBB.ru`), НРА (`BBB|ru|`), Moody's (`Baa1`)** were not parsed at all — silently scored 0 and lost during sorting
+- **`dohodScore` overwrote per-agency scores** (`details.go:173-179`) — if АКРА=AAA + Эксперт=BB and dohod gave 5, both became 5
+
+### New
+- **`service/rating_score.go::NormalizeRating(text) → (ord, tier)`** — single normaliser for all 8 agencies (АКРА, Эксперт РА, НКР, НРА, S&P, Fitch, Moody's, ДОХОДЪ) onto a 22-level ordinal scale (AAA=22 ... D=1, 0=unrated). Handles outlook stripping (`Stable`/`Negative`/`развивающийся`/...) and parenthetical suffixes
+- **`LegacyScore10(ord)`** — maps 22-level ordinal back to legacy 1-10 so existing API/frontend filters keep working unchanged
+- **`IssuerRating.ScoreOrd int`** new bson field (alongside legacy `Score`) — write paths fill both via `service.fillScores`
+- **`RatingService.RecomputeAllScores(ctx)`** runs at API startup to migrate previously stored records; one-shot 614 records updated on first run
+- **`bond.go::GetBondsGroupedByIssuer`** sort now uses `ScoreOrd` — issuer cards on main page render in correct credit order across agencies
+
+### Tests
+- `service/rating_score_test.go` — 96 cases across all 8 agencies, plus targeted regression tests:
+  - `TestNormalizeRating_InvestmentVsSpeculativeBoundary` (BBB- > BB+)
+  - `TestNormalizeRating_CrossAgencyOrdering` (АКРА AAA > Эксперт A, etc.)
+  - `TestDohodLegacyRoundTrip` (ДОХОДЪ n → ord → legacy = n for n in 1..10)
+
+### Other
+- `mongo/RatingRepo.Upsert/BulkUpsert` clear `_id` before `$set` — Mongo treats `_id` as immutable on update; previously broke `RecomputeAllScores`
+
+---
+
 ## v0.10.1 (2026-05-03) — Cleanup & bond.go refactor
 
 ### Cleanup

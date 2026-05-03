@@ -33,6 +33,9 @@ func NewRatingRepo(db *mongo.Database) *RatingRepo {
 
 func (r *RatingRepo) Upsert(ctx context.Context, rating *model.IssuerRating) error {
 	rating.UpdatedAt = time.Now()
+	// Clear ID so that re-saving a record fetched from Mongo does not try to
+	// $set _id (which Mongo treats as immutable on update).
+	rating.ID = ""
 	filter := bson.M{"emitter_id": rating.EmitterID, "agency": rating.Agency}
 	update := bson.M{"$set": rating}
 	opts := options.Update().SetUpsert(true)
@@ -94,6 +97,7 @@ func (r *RatingRepo) BulkUpsert(ctx context.Context, ratings []model.IssuerRatin
 	models := make([]mongo.WriteModel, 0, len(ratings))
 	for i := range ratings {
 		ratings[i].UpdatedAt = time.Now()
+		ratings[i].ID = ""
 		filter := bson.M{"emitter_id": ratings[i].EmitterID, "agency": ratings[i].Agency}
 		update := bson.M{"$set": ratings[i]}
 		models = append(models, mongo.NewUpdateOneModel().SetFilter(filter).SetUpdate(update).SetUpsert(true))
