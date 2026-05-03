@@ -150,14 +150,19 @@ nla/
 │   ├── layouts/default.vue      # Header, nav, dark mode toggle
 │   ├── pages/
 │   │   ├── index.vue            # Bond list with sort/pagination
-│   │   ├── bonds/[secid].vue    # Bond detail with tabs
-│   │   └── bonds/monthly.vue    # Monthly coupons
+│   │   ├── login.vue            # Login/register
+│   │   ├── chat.vue             # AI chat
+│   │   ├── favorites.vue        # User favorites
+│   │   ├── tools.vue            # Markdown formatter + JSON decoder
+│   │   ├── bonds/[secid].vue    # Bond detail with 8 tabs
+│   │   ├── bonds/monthly.vue    # Monthly coupons
+│   │   └── bonds/by-issuer.vue  # Bonds grouped by issuer
 │   ├── components/              # BondTable, BondAiTab, IssuerCardGrid, IssuerFilters, charts, etc.
 │   └── composables/             # useApi.ts, useFormat.ts, useAuth.ts, useFavorites.ts
 ├── nginx/nginx.conf             # Reverse proxy (/ → frontend, /api → Go)
 ├── docker-compose.yml           # 6 services
 ├── Dockerfile                   # Multi-stage Go build
-└── docs/                        # Architecture, entities, API plan, OpenAPI
+└── docs/                        # architecture.md, entities.md, api-plan.md, openapi.yaml, roadmap.md (open work)
 ```
 
 ## API Endpoints
@@ -308,7 +313,7 @@ Reference UI: `http://postroika.test:8081/bond`
 | Favorites/Watchlist | ✅ | ✅ | Done (v0.7) — full stack |
 | Trading status badges | ✅ | ✅ | Done (existing) |
 | Auth UI (login/register) | ✅ | ✅ | Done (v0.7) |
-| Tools page | ✅ | ❌ | Not yet |
+| Tools page | ✅ | ✅ | Done — Markdown formatter + JSON decoder (`pages/tools.vue`) |
 
 ### Known Issues
 - Bondization endpoint was using wrong MOEX ISS path (fixed: `securities/{secid}/bondization.json`)
