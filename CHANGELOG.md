@@ -1,5 +1,25 @@
 # CHANGELOG — NLA (ASH → NLA Migration)
 
+## v0.10.1 (2026-05-03) — Cleanup & bond.go refactor
+
+### Cleanup
+- Untracked build artifacts (`api`, `coverage.out`) removed from repo, `.gitignore` fixed (`/api`, `coverage.out`, `*.test`)
+- PostgreSQL schema вынесена из inline-строк в `internal/database/migrations/0001_init.sql`, грузится через `embed.FS` в лексикографическом порядке
+- Hardcoded `OPENAI_PROXY` IP в `config.go` возвращён на `getEnv`
+- `CLAUDE.md` — секция Working preferences: контекст хранить в репо-документах, не в session memory
+
+### Refactor
+- **`internal/service/bond.go`** распилен 1073 → 354 строк (поведение не менялось, 61 тест зелёный):
+  - `bond_parse.go` — `parseBond`, `mergeYieldData`
+  - `bond_calc.go` — `calculateFields`, `calcRiskCategory`, `sortBonds`, `bondScore`
+  - `bond_sync.go` — `SyncMissingIssuers`, `SyncMissingRatingsFromMoex`
+  - `bond_helpers.go` — `extractRows`, `get*`/`safe*` примитивы
+
+### Tests
+- `internal/database/postgres_test.go` — guard на embed.FS миграций (файлы видны и не пустые)
+
+---
+
 ## v0.10.0 (2026-04-10) — MOEX CCI Ratings & Rating Display Redesign
 
 ### MOEX CCI Rating Integration (Backend)

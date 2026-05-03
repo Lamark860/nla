@@ -104,6 +104,7 @@ nla/
 ├── internal/
 │   ├── config/config.go         # Environment config (DB, Redis, OpenAI, JWT)
 │   ├── database/                # DB connections (postgres, mongo, redis)
+│   │   └── migrations/          # PostgreSQL schema (*.sql, loaded via embed.FS, lex-order)
 │   ├── client/
 │   │   ├── moex/client.go       # MOEX ISS API client (5 endpoints + GetDisclosure + GetCCIRatings)
 │   │   ├── openai/client.go     # OpenAI client (retry, reasoning models)
@@ -131,7 +132,11 @@ nla/
 │   │   └── favorite.go          # PostgreSQL favorites queries
 │   ├── service/
 │   │   ├── auth.go              # Auth business logic
-│   │   ├── bond.go              # MOEX data + cache + calculations + issuer grouping + SyncMissingIssuers + SyncMissingRatingsFromMoex
+│   │   ├── bond.go              # BondService + public API + getAllBonds (cache/MOEX fetch)
+│   │   ├── bond_parse.go        # parseBond, mergeYieldData (MOEX rows → model.Bond)
+│   │   ├── bond_calc.go         # calculateFields, calcRiskCategory, sortBonds, bondScore
+│   │   ├── bond_sync.go         # SyncMissingIssuers, SyncMissingRatingsFromMoex
+│   │   ├── bond_helpers.go      # extractRows, get*/safe* primitives
 │   │   ├── analysis.go          # AI analysis + rating parser
 │   │   ├── details.go           # Dohod.ru service (cache + retry + save + rating sync + emitter name backfill)
 │   │   ├── rating.go            # Credit ratings CRUD + GetAll by emitter_id
