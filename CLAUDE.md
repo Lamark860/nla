@@ -144,7 +144,7 @@ nla/
 │   │   └── queue.go             # Job lifecycle + dedup
 │   └── router/router.go         # Chi routes
 ├── data/prompts/bond_analyst.txt # AI system prompt
-├── frontend/                    # Nuxt 3 (Vue 3 + Tailwind + Chart.js)
+├── frontend/                    # Nuxt 3 (Vue 3 + Bootstrap 5 + Chart.js, custom CSS in assets/css/main.css)
 │   ├── nuxt.config.ts
 │   ├── Dockerfile               # Node 20 Alpine multi-stage
 │   ├── layouts/default.vue      # Header, nav, dark mode toggle

@@ -15,7 +15,7 @@ services:
       - MONGO_DB=nla
       - REDIS_ADDR=redis:6379
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-REDACTED_OPENAI_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:?OPENAI_API_KEY is required, set it in .env}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-5.1-2025-11-13}
       - OPENAI_PROXY=
       - OPENAI_TIMEOUT=${OPENAI_TIMEOUT:-200}
