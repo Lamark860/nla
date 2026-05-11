@@ -241,6 +241,13 @@ func TestNormalizeYTMSweetSpot(t *testing.T) {
 	if n := normalizeYTM(0); n != 0 {
 		t.Fatalf("0%% → 0, got %v", n)
 	}
+	// Garbage MOEX data (>100%) must not score «high yield» — sink to 0.
+	if n := normalizeYTM(2226487); n != 0 {
+		t.Fatalf("bogus yield 2226487%% → 0, got %v", n)
+	}
+	if n := normalizeYTM(75); n != 15 {
+		t.Fatalf("75%% junk tier → 15, got %v", n)
+	}
 }
 
 func TestNormalizeMissingDataPolicy(t *testing.T) {

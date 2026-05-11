@@ -59,8 +59,11 @@ func normalizeCreditRating(ord float64) float64 {
 }
 
 // normalizeYTM: piecewise. Very low YTM (<5%) is below риск-free → 20;
-// very high YTM (>25%) is suspicious / distressed → 60. Sweet spot 15-20%
-// gets the max.
+// 15-20% is the sweet spot. Above 40% the bond is either distressed or
+// MOEX is feeding us garbage (the marketdata YIELD field is famously
+// flaky for near-maturity / illiquid paper — see CLAUDE.md «Some bonds
+// show >999% yield»). Score those near 0 so they sink to the bottom
+// rather than getting credit for «high yield».
 func normalizeYTM(y float64) float64 {
 	switch {
 	case y <= 0:
@@ -75,8 +78,12 @@ func normalizeYTM(y float64) float64 {
 		return 100
 	case y < 25:
 		return 85
-	default:
+	case y < 40:
 		return 60
+	case y < 100:
+		return 15
+	default:
+		return 0
 	}
 }
 
