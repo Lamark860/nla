@@ -7,7 +7,31 @@
 
 **Фаза 1 — инфра-упрощение** ✅ done (2026-05-11).
 
-**Следующая фаза:** Фаза 2 — Scoring engine (см. `docs/roadmap.md`).
+**Фаза 2 — Scoring engine** — в работе.
+
+### Сделано (2026-05-11, после v0.15.0, не закоммичено)
+
+- `internal/scoring/` пакет создан, чистая логика без БД-зависимостей:
+  - `engine.go` — типы `Input`/`Profile`/`BreakdownItem`/`ScoreResult`, `Compute(in, profile) → ScoreResult`, constants `FactorXxx` совпадают с JSONB-ключами в `scoring_profiles.weights` (миграция 0002, lines 185-192)
+  - `factors.go` — 12 extract-функций. Сигнатура `(Input) → (raw float64, hasData bool)`. Источники: `model.Bond` (MOEX поля), `[]model.IssuerRating`, `*model.DohodBondData`, опц. `BenchmarkYieldPct *float64`
+  - `normalize.go` — таблично-кусочные мапы raw → 0..100. Missing-data policy: positive weight → 50 (нейтрально), negative weight → 0 (штраф не срабатывает)
+  - `presets.go` — `PresetLow`/`PresetMid`/`PresetHigh` 1:1 с seed-строками БД, плюс `Presets map[string]Profile`
+  - `engine_test.go` — 17 кейсов (extract happy/missing, normalize anchors, Compute end-to-end по 3 пресетам, missing-factors tracking, lock-in весов)
+- `go test ./internal/scoring/...` 17/17 ✓, `go test ./internal/...` весь пакет зелёный
+
+### Следующий шаг — `internal/repository/scoring.go` + `internal/service/scoring.go`
+
+1. **Репо-слой** — pgx-методы:
+   - `ScoringProfileRepo.GetByCode(code)` / `ListPresets()` / `ListForUser(userID)` / `Upsert(profile)` → таблица `scoring_profiles`
+   - `BondScoreRepo.GetLatest(secid, profile)` / `Insert(score)` → `bond_scores`. TTL 24h: при `computed_at < now()-interval '1 day'` пересчёт
+   - `BondScoreExplanationRepo.GetByScoreID(id)` / `Insert(...)` → `bond_score_explanations`
+2. **Сервис-слой** `internal/service/scoring.go` — `ComputeAll(secid)` (3 профиля) / `ComputeOne(secid, profile)` с автокэшем; собирает `Input` из `BondService.GetBySecid` + `RatingService.GetByEmitterID` + `DetailsService.GetBySecid`
+3. **Handler + routes** — `GET /api/v1/bonds/{secid}/score[?profile=]`, `GET /api/v1/scoring/profiles`. LLM-объяснение через очередь (как нынешний `analyze`), endpoint `POST .../score/explain?profile=X`, новый `JobType="score_explain"` в `queue/worker.go`
+4. **ОФЗ-бенчмарк** — пока заглушка `nil`; решить когда брать (MOEX yield curve или захардкоженный buckets-map по дюрации). Без бенчмарка фактор #3 будет в `missing_factors`, остальное считается
+
+После этого можно мерджить в `v0.16.0` и переходить на Фазу 3 (UI трёх профилей).
+
+**Следующая фаза:** Фаза 3 — UI трёх профилей (после API).
 
 ## Зафиксированные решения (не пересматривать без явного слова пользователя)
 
@@ -26,7 +50,7 @@
 |---|---|---|---|
 | 0 — терминология + доки | ✅ done | 2026-05-11 | `v0.14.8` в CHANGELOG. Не закоммичено |
 | 1 — инфра-упрощение | ✅ done | 2026-05-11 | `v0.15.0` в CHANGELOG. Стек: api + postgres + frontend(nginx+SSG). 3295 issuers, 631 ratings, 57 analyses, 47 dohod, 1 chat session/4 messages мигрированы из Mongo |
-| 2 — scoring engine | ⏳ следующая | — | Таблицы `scoring_profiles`/`bond_scores`/`bond_score_explanations` уже созданы, 3 seed-профиля (low/mid/high) с весами вставлены |
+| 2 — scoring engine | 🟡 in progress | 2026-05-11 | `internal/scoring/` чистая логика готова (17 тестов ✓). Осталось: repo/service/handler-слой + ОФЗ-бенчмарк + LLM-объяснение через очередь |
 | 3 — UI 3 профилей | ⏳ ждёт | — | — |
 | 4 — portfolio | ⏳ ждёт | — | — |
 | 5 — Tinkoff events | ⏳ ждёт | — | — |
