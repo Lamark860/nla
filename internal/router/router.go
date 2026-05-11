@@ -53,6 +53,13 @@ func New(h *handler.Handler) http.Handler {
 			r.Get("/bonds/{secid}/dohod", h.Details.GetDohodDetails)
 		}
 
+		// Scoring engine (Phase 2 — public read, explain enqueues a job)
+		if h.Scoring != nil {
+			r.Get("/scoring/profiles", h.Scoring.ListProfiles)
+			r.Get("/bonds/{secid}/score", h.Scoring.GetScore)
+			r.Post("/bonds/{secid}/score/explain", h.Scoring.ExplainScore)
+		}
+
 		// AI Analysis & Queue (public read, auth for write)
 		if h.Analysis != nil {
 			r.Get("/bonds/{secid}/analyses", h.Analysis.GetAnalyses)

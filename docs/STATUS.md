@@ -7,31 +7,41 @@
 
 **Фаза 1 — инфра-упрощение** ✅ done (2026-05-11).
 
-**Фаза 2 — Scoring engine** — в работе.
+**Фаза 2 — Scoring engine** — backend готов. UI ещё не подключён.
 
-### Сделано (2026-05-11, после v0.15.0, не закоммичено)
+### Сделано (2026-05-11, не закоммичено на момент записи)
 
-- `internal/scoring/` пакет создан, чистая логика без БД-зависимостей:
-  - `engine.go` — типы `Input`/`Profile`/`BreakdownItem`/`ScoreResult`, `Compute(in, profile) → ScoreResult`, constants `FactorXxx` совпадают с JSONB-ключами в `scoring_profiles.weights` (миграция 0002, lines 185-192)
-  - `factors.go` — 12 extract-функций. Сигнатура `(Input) → (raw float64, hasData bool)`. Источники: `model.Bond` (MOEX поля), `[]model.IssuerRating`, `*model.DohodBondData`, опц. `BenchmarkYieldPct *float64`
-  - `normalize.go` — таблично-кусочные мапы raw → 0..100. Missing-data policy: positive weight → 50 (нейтрально), negative weight → 0 (штраф не срабатывает)
-  - `presets.go` — `PresetLow`/`PresetMid`/`PresetHigh` 1:1 с seed-строками БД, плюс `Presets map[string]Profile`
-  - `engine_test.go` — 17 кейсов (extract happy/missing, normalize anchors, Compute end-to-end по 3 пресетам, missing-factors tracking, lock-in весов)
-- `go test ./internal/scoring/...` 17/17 ✓, `go test ./internal/...` весь пакет зелёный
+- `internal/scoring/` — чистая логика (engine + 12 факторов + normalize + 3 пресета + 17 тестов)
+- `internal/model/scoring.go` — `ScoringProfile`, `BondScoreExplanation`, `ScoreExplainJobData`. `BondScore` живёт в `internal/repository/scoring.go` (не в model — был бы импорт-цикл model → scoring → model)
+- `internal/repository/scoring.go` — `ScoringRepo` с методами `GetProfile`/`ListProfiles`/`GetScoreByID`/`GetLatestScore`/`InsertScore`/`DeleteScoresOlderThan`/`GetExplanationByScoreID`/`InsertExplanation`
+- `internal/service/scoring.go` — `ScoringService` собирает `Input` из `BondService.GetBondDetail` + `RatingService.GetByEmitterID` + `DetailsService.GetDetails`. TTL 24h. `ComputeAll`/`ComputeOne`/`Explain`/`GetExplanation`/`ListProfiles`. ОФЗ-бенчмарк пока `nil` (factor #3 уходит в `missing_factors`)
+- `internal/handler/scoring.go` — `GET /api/v1/scoring/profiles`, `GET /api/v1/bonds/{secid}/score[?profile=]`, `POST /api/v1/bonds/{secid}/score/explain?profile=X` (enqueue + immediate response с `job_id` + `score_id`)
+- `internal/queue/worker.go` — обработчик `JobTypeScoreExplain` (вызывает `scoringSvc.Explain(scoreID)`, помечает job done с `explanation_id`)
+- `data/prompts/scoring_explain.txt` — RU-промпт «объясни балл по факторам в 3-4 абзаца, никаких рекомендаций покупать/продавать»
+- `internal/client/openai/client.go` — добавлен публичный `Model()` getter (нужен сервису для тэгирования explanation-row)
+- `internal/scoring/normalize.go` — нормализатор YTM ужесточён: >100% → 0 (MOEX отдаёт мусорные значения для near-maturity/illiquid бумаг — известная регрессия из CLAUDE.md). Тест на это добавлен
+- DI в `cmd/api/main.go` + регистрация роутов в `internal/router/router.go`
 
-### Следующий шаг — `internal/repository/scoring.go` + `internal/service/scoring.go`
+**Smoke-проверка (живой стек):**
+- `GET /api/v1/scoring/profiles` → 3 пресета с весами из migration 0002 ✓
+- `GET /api/v1/bonds/RU000A108KK5/score` → 3 балла (low=58.6 / mid=48.3 / high=43.0), кэш-хит при повторе ✓
+- `bond_scores` хранит рассчитанные ряды ✓
+- `go test ./internal/...` 19/19 пакетов зелёных ✓
 
-1. **Репо-слой** — pgx-методы:
-   - `ScoringProfileRepo.GetByCode(code)` / `ListPresets()` / `ListForUser(userID)` / `Upsert(profile)` → таблица `scoring_profiles`
-   - `BondScoreRepo.GetLatest(secid, profile)` / `Insert(score)` → `bond_scores`. TTL 24h: при `computed_at < now()-interval '1 day'` пересчёт
-   - `BondScoreExplanationRepo.GetByScoreID(id)` / `Insert(...)` → `bond_score_explanations`
-2. **Сервис-слой** `internal/service/scoring.go` — `ComputeAll(secid)` (3 профиля) / `ComputeOne(secid, profile)` с автокэшем; собирает `Input` из `BondService.GetBySecid` + `RatingService.GetByEmitterID` + `DetailsService.GetBySecid`
-3. **Handler + routes** — `GET /api/v1/bonds/{secid}/score[?profile=]`, `GET /api/v1/scoring/profiles`. LLM-объяснение через очередь (как нынешний `analyze`), endpoint `POST .../score/explain?profile=X`, новый `JobType="score_explain"` в `queue/worker.go`
-4. **ОФЗ-бенчмарк** — пока заглушка `nil`; решить когда брать (MOEX yield curve или захардкоженный buckets-map по дюрации). Без бенчмарка фактор #3 будет в `missing_factors`, остальное считается
+### Следующий шаг — Фаза 3 (UI трёх профилей)
 
-После этого можно мерджить в `v0.16.0` и переходить на Фазу 3 (UI трёх профилей).
+Бэк готов отдавать данные. Дальше работа на фронте (см. `docs/roadmap.md` Фаза 3):
 
-**Следующая фаза:** Фаза 3 — UI трёх профилей (после API).
+1. Composable `useScoringProfile()` — глобальный профиль в localStorage, дефолт `mid`
+2. Глобальный переключатель в `layouts/default.vue` (Sidebar) — `🛡️ Низкий / ⚖️ Средний / 🚀 Повышенный`
+3. На `BondHero.vue` / `IssuerCardGrid.vue` — три `<AiScore>` бейджа, активный профиль bold
+4. Новый таб `BondScoreTab.vue` (заменит или дополнит `BondAiTab`): 3 балла сверху, раскрывающийся breakdown по факторам, кнопка «Получить разбор» → POST /score/explain → polling `/jobs/{id}` → отрисовка `explanation.text`
+5. Сортировки/фильтры на главных страницах пересчитываются под активный профиль
+
+### Открытые backend-долги под Фазу 2
+
+- **ОФЗ-бенчмарк для factor #3 (`ytm_premium`)** — нужно либо подтянуть MOEX yield curve, либо захардкодить bucket-map (≤1y/1-3y/3-5y/5y+) по текущей ключевой ставке ЦБ. Пока для всех бумаг фактор #3 — `missing_factors`
+- **Калибровка весов на ~100 бумагах** — фронт + UI dashboard для сравнения score vs ручная оценка
 
 ## Зафиксированные решения (не пересматривать без явного слова пользователя)
 
@@ -50,7 +60,7 @@
 |---|---|---|---|
 | 0 — терминология + доки | ✅ done | 2026-05-11 | `v0.14.8` в CHANGELOG. Не закоммичено |
 | 1 — инфра-упрощение | ✅ done | 2026-05-11 | `v0.15.0` в CHANGELOG. Стек: api + postgres + frontend(nginx+SSG). 3295 issuers, 631 ratings, 57 analyses, 47 dohod, 1 chat session/4 messages мигрированы из Mongo |
-| 2 — scoring engine | 🟡 in progress | 2026-05-11 | `internal/scoring/` чистая логика готова (17 тестов ✓). Осталось: repo/service/handler-слой + ОФЗ-бенчмарк + LLM-объяснение через очередь |
+| 2 — scoring engine | 🟡 backend done | 2026-05-11 | Engine + repo + service + handler + worker job + LLM-prompt. API/profile/score/explain эндпоинты живут. Открыто: UI (Фаза 3) и ОФЗ-бенчмарк для factor #3 |
 | 3 — UI 3 профилей | ⏳ ждёт | — | — |
 | 4 — portfolio | ⏳ ждёт | — | — |
 | 5 — Tinkoff events | ⏳ ждёт | — | — |

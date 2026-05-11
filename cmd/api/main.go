@@ -44,6 +44,7 @@ func main() {
 	chatRepo := repository.NewChatRepo(pgPool)
 	issuerRepo := repository.NewIssuerRepo(pgPool)
 	detailsRepo := repository.NewDetailsRepo(pgPool)
+	scoringRepo := repository.NewScoringRepo(pgPool)
 
 	// Services
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiration)
@@ -65,6 +66,7 @@ func main() {
 	ratingService := service.NewRatingService(ratingRepo)
 	chatService := service.NewChatService(chatRepo, openaiClient)
 	detailsService := service.NewDetailsService(dohodClient, detailsRepo, ratingRepo, issuerRepo)
+	scoringService := service.NewScoringService(scoringRepo, bondService, ratingService, detailsService, openaiClient, "data/prompts/scoring_explain.txt")
 
 	// Handlers
 	h := handler.New(authService, cfg.JWTSecret)
@@ -74,6 +76,7 @@ func main() {
 	h.SetChatHandler(handler.NewChatHandler(chatService))
 	h.SetFavoriteHandler(handler.NewFavoriteHandler(favoriteRepo))
 	h.SetDetailsHandler(handler.NewDetailsHandler(detailsService, queueService, bondService))
+	h.SetScoringHandler(handler.NewScoringHandler(scoringService, queueService))
 
 	// Run migrations
 	if err := database.RunMigrations(ctx, pgPool); err != nil {
@@ -105,7 +108,7 @@ func main() {
 	// Queue worker (background goroutine)
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	defer workerCancel()
-	w := queue.NewWorker(queueService, analysisService, bondService, detailsService)
+	w := queue.NewWorker(queueService, analysisService, bondService, detailsService, scoringService)
 	go w.Run(workerCtx)
 
 	// Sync missing bond_issuers and credit ratings in background

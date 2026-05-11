@@ -59,6 +59,12 @@ func NewClient(cfg Config) *Client {
 	}
 }
 
+// Model returns the model name the client was configured with. Used by
+// callers that want to tag persisted LLM output with the producing model.
+func (c *Client) Model() string {
+	return c.model
+}
+
 type ChatMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`

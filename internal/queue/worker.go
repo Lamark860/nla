@@ -12,12 +12,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// Worker polls MongoDB for pending jobs and processes them
+// Worker polls Postgres for pending jobs and processes them.
 type Worker struct {
 	queueSvc     *service.QueueService
 	analysisSvc  *service.AnalysisService
 	bondSvc      *service.BondService
 	detailsSvc   *service.DetailsService
+	scoringSvc   *service.ScoringService
 	pollInterval time.Duration
 }
 
@@ -26,12 +27,14 @@ func NewWorker(
 	analysisSvc *service.AnalysisService,
 	bondSvc *service.BondService,
 	detailsSvc *service.DetailsService,
+	scoringSvc *service.ScoringService,
 ) *Worker {
 	return &Worker{
 		queueSvc:     queueSvc,
 		analysisSvc:  analysisSvc,
 		bondSvc:      bondSvc,
 		detailsSvc:   detailsSvc,
+		scoringSvc:   scoringSvc,
 		pollInterval: 2 * time.Second,
 	}
 }
@@ -77,10 +80,66 @@ func (w *Worker) processNext(ctx context.Context) {
 		w.processAIAnalysis(ctx, job)
 	case model.JobTypeParseDohod:
 		w.processDohodParse(ctx, job)
+	case model.JobTypeScoreExplain:
+		w.processScoreExplain(ctx, job)
 	default:
 		log.Printf("WARN: unknown job type %q, marking error", job.Type)
 		w.queueSvc.MarkError(ctx, job.JobID, "unknown job type: "+job.Type)
 	}
+}
+
+// processScoreExplain narrates a previously-computed BondScore via the LLM
+// and stashes the text in bond_score_explanations. The job payload always
+// carries the frozen score_id (handler resolved it before enqueue), so a
+// concurrent 24h cache refresh between enqueue and pick-up cannot swap
+// out the breakdown mid-explanation.
+func (w *Worker) processScoreExplain(ctx context.Context, job *model.QueueJob) {
+	scoreID, ok := extractScoreID(job.Data)
+	if !ok {
+		log.Printf("ERROR: missing score_id in score_explain job %s (data type %T)", job.JobID, job.Data)
+		w.queueSvc.MarkError(ctx, job.JobID, "missing score_id in job data")
+		return
+	}
+
+	exp, err := w.scoringSvc.Explain(ctx, scoreID)
+	if err != nil {
+		log.Printf("ERROR: score explain for job %s (score_id=%d): %v", job.JobID, scoreID, err)
+		w.queueSvc.MarkError(ctx, job.JobID, "score explain: "+err.Error())
+		return
+	}
+
+	result := map[string]any{
+		"score_id":       scoreID,
+		"explanation_id": exp.ID,
+	}
+	if err := w.queueSvc.MarkDone(ctx, job.JobID, result); err != nil {
+		log.Printf("ERROR: mark score_explain done %s: %v", job.JobID, err)
+	}
+	log.Printf("Job %s done: explanation %d for score %d", job.JobID, exp.ID, scoreID)
+}
+
+// extractScoreID pulls score_id from the job's data blob, regardless of
+// whether pgx delivered it as map[string]any (the normal pg-driven path)
+// or as a number that came in via JSON encoder somewhere else.
+// Returns ok=false when nothing parseable is present.
+func extractScoreID(data any) (int64, bool) {
+	m, ok := data.(map[string]any)
+	if !ok {
+		return 0, false
+	}
+	v, ok := m["score_id"]
+	if !ok {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case float64: // JSON numbers always come back as float64
+		return int64(n), true
+	case int64:
+		return n, true
+	case int:
+		return int64(n), true
+	}
+	return 0, false
 }
 
 func (w *Worker) processAIAnalysis(ctx context.Context, job *model.QueueJob) {
