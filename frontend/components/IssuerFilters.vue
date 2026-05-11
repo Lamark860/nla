@@ -327,10 +327,11 @@ export const Chip = defineComponent({
 }
 .filters__row { display: flex; gap: 8px; flex-wrap: wrap; }
 .filters__row--selects > * { flex: 1 1 180px; }
-/* 4 диапазонов × 170px ≈ 680px ширины перед переносом — native spinner
-   занимает ~14px справа от инпута, плюс «от»/«до» по центру + dash +
-   suffix. Меньше 170 — стрелочки начинают наезжать на цифры. */
-.filters__row--ranges  > * { flex: 1 1 170px; }
+/* flex-basis ниже реального минимума гарантирует, что все 4 диапазона
+   укладываются в одну строку: flex-grow растягивает их по ширине
+   контейнера поровну. На ширине ~700px каждый получает ~165px, чего
+   хватает на «от/—/до/%» вместе с нативной стрелкой. */
+.filters__row--ranges  > * { flex: 1 1 130px; min-width: 0; }
 
 /* search row layout */
 .filters__row--search { display: flex; gap: 8px; align-items: stretch; }
