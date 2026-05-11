@@ -63,7 +63,7 @@
         <div class="filters__row filters__row--ranges">
           <RangeField v-model="state.yield" label="Доходность" suffix="%" @change="emitChange" />
           <RangeField v-model="state.coupon" label="Купон" suffix="%" @change="emitChange" />
-          <RangeField v-model="state.duration" label="Дюрация" suffix=" дн" @change="emitChange" />
+          <RangeField v-model="state.maturity" label="До погашения" suffix=" дн" @change="emitChange" />
         </div>
       </div>
 
@@ -114,7 +114,7 @@ const state = reactive({
   aiBucket: '',
   yield: { min: '', max: '' } as { min: string; max: string },
   coupon: { min: '', max: '' },
-  duration: { min: '', max: '' },
+  maturity: { min: '', max: '' },
   tradeable: false,
   hasRating: false,
   isFloat: false,
@@ -160,7 +160,7 @@ const activeCount = computed(() => {
   if (state.aiBucket) n++
   if (state.yield.min || state.yield.max) n++
   if (state.coupon.min || state.coupon.max) n++
-  if (state.duration.min || state.duration.max) n++
+  if (state.maturity.min || state.maturity.max) n++
   if (state.tradeable) n++
   if (state.hasRating) n++
   if (state.isFloat) n++
@@ -177,7 +177,7 @@ const advancedActiveCount = computed(() => {
   if (state.aiBucket) n++
   if (state.yield.min || state.yield.max) n++
   if (state.coupon.min || state.coupon.max) n++
-  if (state.duration.min || state.duration.max) n++
+  if (state.maturity.min || state.maturity.max) n++
   return n
 })
 
@@ -193,7 +193,7 @@ function reset() {
   state.category = state.sector = state.rating = state.aiBucket = ''
   state.yield = { min: '', max: '' }
   state.coupon = { min: '', max: '' }
-  state.duration = { min: '', max: '' }
+  state.maturity = { min: '', max: '' }
   state.tradeable = state.hasRating = state.isFloat = false
   state.hideMatured = true
   emitChange()
@@ -315,7 +315,7 @@ export const Chip = defineComponent({
 }
 .filters__row { display: flex; gap: 8px; flex-wrap: wrap; }
 .filters__row--selects > * { flex: 1 1 180px; }
-.filters__row--ranges  > * { flex: 1 1 200px; }
+.filters__row--ranges  > * { flex: 1 1 150px; }
 
 /* search row layout */
 .filters__row--search { display: flex; gap: 8px; align-items: stretch; }
@@ -438,9 +438,9 @@ export const Chip = defineComponent({
 :deep(.if-range__pair) {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   height: 30px;
-  padding: 0 10px;
+  padding: 0 8px;
   background: var(--nla-bg-input);
   border: 1px solid var(--nla-border);
   border-radius: var(--nla-radius);
@@ -450,19 +450,21 @@ export const Chip = defineComponent({
   box-shadow: 0 0 0 3px var(--nla-primary-subtle);
 }
 :deep(.if-range__field) {
-  width: 60px;
+  width: 44px;
+  text-align: center;
   border: 0;
   background: transparent;
-  font: 500 13px / 1 var(--nla-font-mono);
+  font: 500 12.5px / 1 var(--nla-font-mono);
   font-feature-settings: 'tnum';
   color: var(--nla-text);
   outline: none;
   -moz-appearance: textfield;
 }
+:deep(.if-range__field::placeholder) { font-size: 11px; }
 :deep(.if-range__field::-webkit-outer-spin-button),
 :deep(.if-range__field::-webkit-inner-spin-button) { -webkit-appearance: none; margin: 0; }
-:deep(.if-range__dash)  { color: var(--nla-text-muted); }
-:deep(.if-range__suffix){ color: var(--nla-text-muted); font-size: 12px; margin-left: auto; }
+:deep(.if-range__dash)  { color: var(--nla-text-muted); font-size: 11px; }
+:deep(.if-range__suffix){ color: var(--nla-text-muted); font-size: 11px; margin-left: auto; padding-left: 4px; }
 
 :deep(.if-chip) {
   display: inline-flex;
