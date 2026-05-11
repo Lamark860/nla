@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"nla/internal/model"
-	"nla/internal/mongo"
+	"nla/internal/repository"
 )
 
 type QueueService struct {
-	repo *mongo.QueueRepo
+	repo *repository.QueueRepo
 }
 
-func NewQueueService(repo *mongo.QueueRepo) *QueueService {
+func NewQueueService(repo *repository.QueueRepo) *QueueService {
 	return &QueueService{repo: repo}
 }
 

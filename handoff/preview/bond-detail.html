@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light" data-palette="violet">
+<head>
+<meta charset="utf-8" />
+<title>NLA · Сбер Б1Р-22R</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  /* ─── Palette tokens ─────────────────── */
+  :root[data-palette="violet"]{
+    --accent: #5b3aa8; --accent-soft:#ede8f8; --accent-ink:#3b2480;
+    --accent-dark:#b89cff; --accent-dark-soft:#2a1e54;
+  }
+  :root[data-palette="blue"]{
+    --accent:#1f4ed8; --accent-soft:#e4ecff; --accent-ink:#15389e;
+    --accent-dark:#6fa0ff; --accent-dark-soft:#0f234f;
+  }
+  :root[data-palette="teal"]{
+    --accent:#0e7a78; --accent-soft:#d8efee; --accent-ink:#075654;
+    --accent-dark:#4dd0bd; --accent-dark-soft:#0a3837;
+  }
+  :root[data-palette="graphite"]{
+    --accent:#2d2d33; --accent-soft:#ececef; --accent-ink:#161618;
+    --accent-dark:#d4d4dc; --accent-dark-soft:#2a2a30;
+  }
+
+  /* Light (C) */
+  :root[data-theme="light"]{
+    --bg:#faf8f5; --bg-2:#f3efea; --surface:#ffffff; --surface-2:#fbf9f6;
+    --border:#ece7df; --border-strong:#d8d1c5;
+    --ink:#1a1814; --ink-2:#45413a; --muted:#8a8478; --muted-2:#b0a99c;
+    --pos:#0d7a4e; --pos-soft:#d4ecdf; --neg:#c2410c; --neg-soft:#fce4d4; --warn:#b45309;
+    --shadow-sm: 0 1px 2px rgba(40,30,15,.04), 0 1px 1px rgba(40,30,15,.03);
+    --shadow-md: 0 1px 3px rgba(40,30,15,.06), 0 4px 14px rgba(40,30,15,.06);
+    --accent-current:var(--accent); --accent-current-soft:var(--accent-soft); --accent-current-ink:var(--accent-ink);
+  }
+  /* Dark (B) */
+  :root[data-theme="dark"]{
+    --bg:#0c0e0d; --bg-2:#131614; --surface:#161917; --surface-2:#1d211e;
+    --border:#262a27; --border-strong:#353a36;
+    --ink:#e7ece7; --ink-2:#b8c0b8; --muted:#767e76; --muted-2:#4f574f;
+    --pos:#38c172; --pos-soft:#143a23; --neg:#ef6c4e; --neg-soft:#3a1c12; --warn:#e8b75d;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 4px 18px rgba(0,0,0,.5);
+    --accent-current:var(--accent-dark); --accent-current-soft:var(--accent-dark-soft); --accent-current-ink:var(--accent-dark);
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+    font-size:14px; line-height:1.5;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    font-feature-settings:'cv11','ss01','ss03';
+  }
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-feature-settings:'tnum','zero'}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* shell */
+  .shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+  .nav{background:var(--bg-2);border-right:1px solid var(--border);padding:20px 18px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:28px;font-weight:700;letter-spacing:-0.01em;font-size:15px}
+  .brand-mark{width:28px;height:28px;border-radius:8px;background:var(--accent-current);display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;box-shadow:var(--shadow-sm)}
+  :root[data-theme="dark"] .brand-mark{color:#0c0e0d}
+  .nav-section{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin:14px 4px 6px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;color:var(--ink-2);font-size:13px;font-weight:500;cursor:default}
+  .nav-item:hover{background:rgba(0,0,0,0.03);color:var(--ink)}
+  :root[data-theme="dark"] .nav-item:hover{background:rgba(255,255,255,0.04)}
+  .nav-item.active{background:var(--accent-current-soft);color:var(--accent-current-ink);font-weight:600}
+  .nav-item i{font-size:15px;width:16px;display:inline-flex;justify-content:center}
+
+  .main{padding:24px 36px 80px;max-width:1480px}
+
+  /* Breadcrumbs */
+  .crumbs{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap;row-gap:4px}
+  .crumbs a,.crumbs .current{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+  .crumbs a{color:var(--muted);text-decoration:none}
+  .crumbs a:hover{color:var(--accent-current-ink)}
+  .crumbs i{font-size:10px;opacity:.5}
+  .crumbs .current{color:var(--ink-2)}
+
+  /* Hero */
+  .hero{
+    background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:22px 24px; box-shadow:var(--shadow-sm); margin-bottom:18px;
+  }
+  .hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap}
+  .hero-title{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .hero-title h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--ink)}
+  .hero-secid{font:500 13px/1 'JetBrains Mono',monospace;color:var(--muted);background:var(--bg-2);padding:6px 9px;border-radius:6px}
+  .hero-issuer{color:var(--muted);font-size:13px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:4px;min-width:0}
+  .hero-issuer .dot{width:3px;height:3px;border-radius:50%;background:var(--muted-2);flex-shrink:0}
+  .hero-issuer a{color:var(--ink-2);text-decoration:none;font-weight:500;white-space:nowrap}
+  .hero-issuer .fullname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto;max-width:100%}
+  .hero-issuer a:hover{color:var(--accent-current-ink)}
+
+  .hero-actions{display:flex;gap:8px;align-items:center}
+  .star-btn{
+    width:36px;height:36px;border-radius:9px;background:var(--bg-2);border:1px solid var(--border);
+    color:var(--muted);display:grid;place-items:center;font-size:16px;cursor:default;
+  }
+  .star-btn.fav{background:var(--accent-current-soft);color:var(--accent-current-ink);border-color:transparent}
+
+  .hero-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .tag{font:500 10.5px/1 'Inter',sans-serif;padding:4px 8px;border-radius:5px;border:1px solid var(--border-strong);color:var(--muted);text-transform:uppercase;letter-spacing:0.05em}
+  .tag.live{background:var(--pos-soft);color:var(--pos);border-color:transparent}
+  .tag.live .pulse{display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor;margin-right:5px;animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+  .rt{font:600 11px/1 'JetBrains Mono',monospace;padding:4px 7px;border-radius:5px;letter-spacing:0.02em;border:1px solid transparent}
+  .rt.aaa{background:#dff5e8;color:#0d6e3a;border-color:#bfe9d0}
+  :root[data-theme="dark"] .rt.aaa{background:#143a23;color:#7ee0a3;border-color:#1f5232}
+
+  /* KPI strip */
+  .kpis{
+    display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;
+    margin-top:20px;border-top:1px solid var(--border);padding-top:18px;
+  }
+  .kpi{padding-right:18px;border-right:1px solid var(--border)}
+  .kpi:last-child{border-right:0;padding-right:0}
+  .kpi-lbl{font-size:10.5px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .kpi-val{font:600 24px/1 'JetBrains Mono',monospace;letter-spacing:-0.02em;color:var(--ink);display:flex;align-items:baseline;gap:4px}
+  .kpi-val .unit{font-size:13px;color:var(--muted-2);font-weight:500;letter-spacing:0}
+  .kpi-val.up{color:var(--pos)}
+  .kpi-sub{font-size:11.5px;color:var(--muted);margin-top:5px;font-family:'JetBrains Mono',monospace}
+  .kpi-sub.up{color:var(--pos)} .kpi-sub.down{color:var(--neg)}
+
+  /* tabs */
+  .tabs{display:flex;gap:4px;background:var(--bg-2);border:1px solid var(--border);border-radius:11px;padding:3px;margin-bottom:18px;overflow-x:auto}
+  .tab{
+    height:36px;padding:0 14px;border-radius:8px;border:0;background:transparent;
+    color:var(--muted);font:500 13px/1 'Inter',sans-serif;display:inline-flex;align-items:center;gap:7px;
+    white-space:nowrap;cursor:default;
+  }
+  .tab i{font-size:14px}
+  .tab:hover{color:var(--ink)}
+  .tab.active{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--shadow-sm)}
+  .tab .count{font:500 10px/1 'JetBrains Mono',monospace;background:var(--accent-current-soft);color:var(--accent-current-ink);padding:3px 6px;border-radius:4px;letter-spacing:0.02em}
+
+  /* panels */
+  .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  @media (max-width:1080px){.row{grid-template-columns:1fr}}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);overflow:hidden}
+  .panel-head{
+    display:flex;align-items:center;gap:10px;padding:14px 18px;
+    border-bottom:1px solid var(--border);background:var(--surface-2);
+  }
+  .panel-head i{font-size:14px;color:var(--accent-current-ink)}
+  :root[data-theme="dark"] .panel-head i{color:var(--accent-current)}
+  .panel-head h3{margin:0;font-size:13px;font-weight:600;letter-spacing:-0.005em;color:var(--ink);text-transform:none}
+  .panel-head .meta{margin-left:auto;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+  .info-row{
+    display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:baseline;
+    padding:9px 18px;border-top:1px solid var(--border);
+  }
+  .info-row:first-child{border-top:0}
+  .info-lbl{color:var(--muted);font-size:12.5px}
+  .info-val{color:var(--ink);font-size:13px;font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+  .info-val.mono{font-family:'JetBrains Mono',monospace;font-weight:500}
+  .info-val.muted{color:var(--muted-2)}
+
+  /* life progress */
+  .progress-block{padding:16px 18px}
+  .progress-meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:8px}
+  .progress-meta b{color:var(--ink-2);font-weight:500;font-family:'JetBrains Mono',monospace}
+  .progress-bar{height:6px;background:var(--bg-2);border-radius:99px;overflow:hidden;position:relative}
+  .progress-fill{height:100%;background:var(--accent-current);border-radius:99px;position:relative}
+  .progress-fill::after{content:"";position:absolute;right:-3px;top:-3px;width:12px;height:12px;border-radius:50%;background:var(--accent-current);box-shadow:0 0 0 3px var(--surface)}
+  .progress-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:7px;font-family:'JetBrains Mono',monospace}
+
+  /* AI tab specific */
+  .ai-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px}
+  @media (max-width:1080px){.ai-grid{grid-template-columns:1fr}}
+
+  .form-block{padding:18px}
+  .field-lbl{display:block;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .code-block{
+    background:var(--bg-2);border:1px solid var(--border);border-radius:8px;
+    padding:12px 14px;font:500 12px/1.55 'JetBrains Mono',monospace;color:var(--ink-2);
+    max-height:220px;overflow:auto;white-space:pre;
+    scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;
+  }
+  .code-block::-webkit-scrollbar{width:8px;height:8px}
+  .code-block::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+  .hint{font-size:11.5px;margin-top:7px;display:flex;align-items:center;gap:6px}
+  .hint.ok{color:var(--pos)}
+  .hint.warn{color:var(--warn)}
+  .textarea{
+    width:100%;min-height:78px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 12px;color:var(--ink);font:500 12.5px/1.5 'JetBrains Mono',monospace;resize:vertical;
+  }
+  .textarea:focus{outline:none;border-color:var(--accent-current)}
+  .submit-btn{
+    height:38px;padding:0 16px;background:var(--accent-current);color:#fff;border:0;border-radius:9px;
+    font:600 13px/1 'Inter',sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:default;
+    box-shadow:var(--shadow-sm);
+  }
+  :root[data-theme="dark"] .submit-btn{color:#0c0e0d}
+  .submit-btn:hover{filter:brightness(1.05)}
+
+  /* History list */
+  .hist-item{
+    padding:12px 16px;border-top:1px solid var(--border);
+    display:flex;flex-direction:column;gap:6px;cursor:default;
+  }
+  .hist-item:first-child{border-top:0}
+  .hist-item:hover{background:var(--surface-2)}
+  .hist-item.active{background:var(--accent-current-soft)}
+  .hist-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .hist-meta{display:flex;align-items:center;gap:8px}
+  .ai-score{
+    font:600 11px/1 'JetBrains Mono',monospace;padding:4px 7px;border-radius:5px;
+    display:inline-flex;align-items:center;gap:4px;
+  }
+  .ai-score .dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7}
+  .ai-score.s-high{background:#dff5e8;color:#0d6e3a}
+  .ai-score.s-med{background:#fff5d8;color:#7a5800}
+  .ai-score.s-low{background:#ffe6d4;color:#8a3d00}
+  :root[data-theme="dark"] .ai-score.s-high{background:#143a23;color:#7ee0a3}
+  :root[data-theme="dark"] .ai-score.s-med{background:#3a2f0e;color:#e8c468}
+  :root[data-theme="dark"] .ai-score.s-low{background:#3a1f0d;color:#e89b5e}
+  .hist-time{font:500 11px/1 'JetBrains Mono',monospace;color:var(--muted)}
+  .hist-preview{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hist-actions{display:flex;align-items:center;gap:4px;color:var(--muted-2);font-size:13px}
+
+  /* AI result */
+  .ai-result-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)}
+  .ai-result-body{padding:18px;font-size:13.5px;line-height:1.65;color:var(--ink-2)}
+  .ai-result-body h2{font-size:16px;font-weight:600;color:var(--ink);margin:18px 0 8px;letter-spacing:-0.005em}
+  .ai-result-body h2:first-child{margin-top:0}
+  .ai-result-body p{margin:0 0 10px}
+  .ai-result-body strong{color:var(--ink);font-weight:600}
+  .ai-result-body ul{padding-left:20px;margin:8px 0}
+  .ai-result-body li{margin:4px 0}
+  .ai-result-body table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12.5px}
+  .ai-result-body th{background:var(--bg-2);text-align:left;padding:8px 10px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--border)}
+  .ai-result-body td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--ink-2)}
+  .ai-result-body td.num{font-family:'JetBrains Mono',monospace;text-align:right}
+
+  /* Stats grid */
+  .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0}
+  .stat-cell{padding:18px;text-align:center;border-right:1px solid var(--border)}
+  .stat-cell:last-child{border-right:0}
+  .stat-num{font:700 26px/1 'JetBrains Mono',monospace;color:var(--ink);letter-spacing:-0.02em}
+  .stat-num .ai-score{font-size:18px;padding:6px 10px}
+  .stat-lbl{font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:0.02em}
+
+  /* Theme switcher */
+  .theme-pill{display:inline-flex;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:2px}
+  .theme-pill button{height:26px;width:30px;border:0;background:transparent;border-radius:7px;color:var(--muted);font-size:13px;display:inline-flex;align-items:center;justify-content:center}
+  .theme-pill button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+
+  .head-actions{display:flex;gap:8px;align-items:center;margin-left:auto}
+
+  /* ── Chart tab ──────────────── */
+  .chart-toolbar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .seg{display:inline-flex;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:2px}
+  .seg button{height:26px;padding:0 10px;border:0;background:transparent;border-radius:6px;color:var(--muted);font:500 12px/1 'Inter';cursor:default}
+  .seg button.active{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--shadow-sm)}
+  .legend{display:inline-flex;gap:14px;align-items:center;font-size:11.5px;color:var(--muted)}
+  .legend .swatch{width:10px;height:2px;border-radius:1px;display:inline-block;margin-right:5px;vertical-align:middle}
+  .chart-stage{position:relative;padding:16px 12px 24px;background:linear-gradient(to bottom, var(--surface) 0%, var(--surface-2) 100%)}
+  .chart-tt{position:absolute;background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;padding:9px 11px;box-shadow:var(--shadow-md);font-size:11.5px;pointer-events:none;min-width:130px}
+  .chart-tt .tt-date{font:500 11px/1 'JetBrains Mono',monospace;color:var(--muted);margin-bottom:4px}
+  .chart-tt .tt-row{display:flex;justify-content:space-between;gap:14px;margin-top:3px;align-items:center}
+  .chart-tt .tt-row b{font-family:'JetBrains Mono',monospace;color:var(--ink);font-weight:600}
+  .chart-tt .swatch{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:6px;vertical-align:middle}
+  .chart-stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border)}
+  .chart-stats .stat-cell{padding:14px 18px;text-align:left;border-right:1px solid var(--border)}
+  .chart-stats .stat-num{font:600 18px/1.2 'JetBrains Mono',monospace}
+  .chart-stats .stat-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;margin-top:5px}
+
+  /* ── Coupons tab ────────────── */
+  .coupon-summary{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border)}
+  .cs-cell{padding:14px 18px;border-right:1px solid var(--border)}
+  .cs-cell:last-child{border-right:0}
+  .cs-lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px}
+  .cs-val{font:600 18px/1.1 'JetBrains Mono',monospace;color:var(--ink)}
+  .cs-val.up{color:var(--pos)}
+  .cs-sub{font-size:11px;color:var(--muted);margin-top:4px;font-family:'JetBrains Mono',monospace}
+
+  .coupon-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+  .coupon-tbl th{
+    background:var(--surface-2);position:sticky;top:0;
+    text-align:left;padding:9px 14px;font:600 10.5px/1 'Inter';
+    text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);
+    border-bottom:1px solid var(--border);
+  }
+  .coupon-tbl th.right{text-align:right}
+  .coupon-tbl td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--ink-2);vertical-align:middle}
+  .coupon-tbl td.right{text-align:right;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .coupon-tbl tr.paid td{color:var(--muted)}
+  .coupon-tbl tr.paid td.right{color:var(--muted)}
+  .coupon-tbl tr.next{background:var(--accent-current-soft)}
+  .coupon-tbl tr.next td{color:var(--accent-current-ink);font-weight:600}
+  :root[data-theme="dark"] .coupon-tbl tr.next td{color:var(--accent-current)}
+  .pill-status{font:600 10px/1 'Inter';padding:3px 7px;border-radius:5px;text-transform:uppercase;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:5px}
+  .pill-status.paid{background:var(--bg-2);color:var(--muted)}
+  .pill-status.next{background:var(--accent-current);color:#fff}
+  :root[data-theme="dark"] .pill-status.next{color:#0c0e0d}
+  .pill-status.future{background:transparent;color:var(--muted);border:1px solid var(--border-strong)}
+  .pill-status.put{background:var(--pos-soft);color:var(--pos)}
+
+  /* ── Order book ─────────────── */
+  .ob-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}
+  @media (max-width:1080px){.ob-grid{grid-template-columns:1fr}}
+  .ob-tbl{width:100%;border-collapse:separate;border-spacing:0;font:500 12.5px/1 'JetBrains Mono',monospace}
+  .ob-tbl th{font:600 10px/1 'Inter';text-transform:uppercase;letter-spacing:0.06em;padding:8px 14px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface-2);text-align:right}
+  .ob-tbl th:first-child{text-align:left}
+  .ob-tbl td{padding:6px 14px;font-variant-numeric:tabular-nums;text-align:right;position:relative;color:var(--ink)}
+  .ob-tbl td:first-child{text-align:left}
+  .ob-tbl tr td:first-child{font-weight:600}
+  .ob-tbl tr.bid td:first-child{color:var(--pos)}
+  .ob-tbl tr.ask td:first-child{color:var(--neg)}
+  .ob-tbl tr.spread td{font-style:normal;background:var(--bg-2);color:var(--muted);font:500 11px/1 'Inter';padding:8px 14px;text-align:center}
+  .ob-tbl tr.spread td:first-child{text-align:center;color:var(--muted)}
+  .ob-bar{position:absolute;top:0;bottom:0;right:0;opacity:.18;pointer-events:none}
+  .ob-bar.bid{background:var(--pos)}
+  .ob-bar.ask{background:var(--neg)}
+
+  .trades-tbl{width:100%;border-collapse:separate;border-spacing:0;font:500 12.5px/1 'JetBrains Mono',monospace}
+  .trades-tbl th{font:600 10px/1 'Inter';text-transform:uppercase;letter-spacing:0.06em;padding:8px 14px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface-2);text-align:right}
+  .trades-tbl th:first-child{text-align:left}
+  .trades-tbl td{padding:6px 14px;font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2);border-bottom:1px solid var(--border)}
+  .trades-tbl td:first-child{text-align:left;color:var(--muted)}
+  .trades-tbl td.buy{color:var(--pos);font-weight:600}
+  .trades-tbl td.sell{color:var(--neg);font-weight:600}
+
+  /* ── Issuer profile ─────────── */
+  .issuer-hdr{padding:18px 22px;display:grid;grid-template-columns:64px 1fr auto;gap:16px;align-items:center;border-bottom:1px solid var(--border);background:var(--surface-2)}
+  .issuer-logo{width:64px;height:64px;border-radius:14px;background:linear-gradient(135deg,#0d7a4e,#21a16e);display:grid;place-items:center;color:#fff;font:700 24px/1 'Inter';letter-spacing:-0.02em;box-shadow:var(--shadow-sm)}
+  .issuer-meta h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-0.01em;color:var(--ink)}
+  .issuer-meta .sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .issuer-meta .tags{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .issuer-stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border)}
+
+  .issuer-bonds-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+  .issuer-bonds-tbl th{background:var(--surface-2);text-align:left;padding:9px 14px;font:600 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);border-bottom:1px solid var(--border)}
+  .issuer-bonds-tbl th.right{text-align:right}
+  .issuer-bonds-tbl td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--ink-2)}
+  .issuer-bonds-tbl td.right{text-align:right;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .issuer-bonds-tbl td.name{font-weight:600;color:var(--ink)}
+  .issuer-bonds-tbl tr.current{background:var(--accent-current-soft)}
+  .issuer-bonds-tbl tr.current td{color:var(--accent-current-ink)}
+  :root[data-theme="dark"] .issuer-bonds-tbl tr.current td{color:var(--accent-current)}
+  .you-here{font:600 9px/1 'Inter';padding:3px 6px;border-radius:4px;background:var(--accent-current);color:#fff;margin-left:6px;letter-spacing:0.05em;text-transform:uppercase}
+  :root[data-theme="dark"] .you-here{color:#0c0e0d}
+
+  .ratings-block{padding:18px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .rating-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--surface)}
+  .rating-card .agency{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em}
+  .rating-card .grade{font:700 22px/1 'JetBrains Mono',monospace;color:var(--ink);margin-top:6px;letter-spacing:-0.02em}
+  .rating-card .outlook{font-size:11px;color:var(--pos);margin-top:6px;display:flex;align-items:center;gap:5px}
+  .rating-card .outlook.stable{color:var(--muted)}
+  .rating-card .updated{font-size:10.5px;color:var(--muted-2);margin-top:5px;font-family:'JetBrains Mono',monospace}
+
+  .quality-block{padding:18px}
+  .qbar{display:grid;grid-template-columns:120px 1fr 36px;gap:12px;align-items:center;margin-bottom:11px}
+  .qbar:last-child{margin-bottom:0}
+  .qbar-lbl{font-size:12px;color:var(--ink-2)}
+  .qbar-track{height:6px;background:var(--bg-2);border-radius:99px;overflow:hidden}
+  .qbar-fill{height:100%;border-radius:99px;background:var(--accent-current)}
+  .qbar-fill.pos{background:linear-gradient(to right,var(--pos) 0%,var(--accent-current) 100%)}
+  .qbar-val{font:600 12px/1 'JetBrains Mono',monospace;color:var(--ink);text-align:right}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+
+const BOND = {
+  secid: "RU000A105N84",
+  name: "Сбер Б1Р-22R",
+  fullname: "ПАО Сбербанк, Биржевые облигации серии 001Р-22R",
+  isin: "RU000A105N84",
+  issuer: { id: 1234, name: "ПАО Сбербанк" },
+  status: "live",
+  rating: { tier: "aaa", value: "AAA(RU)", agency: "АКРА" },
+  flags: ["Корпоративная","Уровень 1","Биржевая"],
+  price: 99.86, priceChg: 0.14, priceChgAbs: 1.40,
+  yield: 13.42, yieldChg: -0.08,
+  nkd: 18.45, nkdPctNom: 1.845,
+  coupon: 13.50, couponValue: 67.31,
+  put: "2026-04-15", putDays: 138,
+  mat: "2029-04-12", matDays: 1234,
+  next_coupon: "2026-01-12", coupon_period: 91,
+  facevalue: 1000, issuesize: 50_000_000, placed: 50_000_000,
+  ai: 88, ai_total: 12,
+  lifeProgress: 32,
+};
+
+const ANALYSES = [
+  { id:"a1", rating:88, time:"12.10.25 14:32", preview:"Сильный эмитент с государственной поддержкой. Доходность выше OFZ на 280 б.п. при минимальных рисках. Рекомендую к покупке для консервативного портфеля.", main:true },
+  { id:"a2", rating:84, time:"03.09.25 09:18", preview:"Облигация Сбербанка с фиксированным купоном 13.5%. Рейтинги на максимальном уровне, ликвидность высокая." },
+  { id:"a3", rating:91, time:"28.08.25 18:04", preview:"Премиум-эмитент. Опция оферты добавляет гибкости — можно зафиксировать доходность на горизонте 4 месяцев." },
+  { id:"a4", rating:79, time:"15.08.25 11:47", preview:"Текущая премия к ОФЗ сократилась после ралли. Учитывая близость оферты, лучше дождаться расширения спреда." },
+];
+
+const AI_RESULT_HTML = `
+<h2>Резюме</h2>
+<p><strong>Сбер Б1Р-22R</strong> — биржевая облигация Сбербанка с фиксированным купоном <strong>13,5%</strong>, торгующаяся около номинала. Эмитент имеет максимальные рейтинги от АКРА (AAA(RU)) и Эксперт РА (ruAAA).</p>
+
+<h2>Ключевые показатели</h2>
+<table>
+  <thead><tr><th>Параметр</th><th>Значение</th><th>Оценка</th></tr></thead>
+  <tbody>
+    <tr><td>Доходность к погашению</td><td class="num">13,42%</td><td>выше OFZ на 280 б.п.</td></tr>
+    <tr><td>Кредитный риск</td><td class="num">AAA</td><td>минимальный</td></tr>
+    <tr><td>Ликвидность</td><td class="num">высокая</td><td>средний оборот ~85 млн ₽/день</td></tr>
+    <tr><td>Дюрация</td><td class="num">3,1 года</td><td>умеренная</td></tr>
+  </tbody>
+</table>
+
+<h2>Сильные стороны</h2>
+<ul>
+  <li>Системно-значимый эмитент с государственной поддержкой</li>
+  <li>Премия к ОФЗ <strong>+280 б.п.</strong> — компенсирует кредитный риск с запасом</li>
+  <li>Близкая оферта (138 дней) позволяет ограничить процентный риск</li>
+</ul>
+
+<h2>Риски</h2>
+<ul>
+  <li>Чувствительность к ключевой ставке ЦБ — рост на 1% даст −2,3% по цене</li>
+  <li>Налоговая нагрузка снижает реальную доходность до ~11,7% после НДФЛ</li>
+</ul>
+
+<h2>Рекомендация</h2>
+<p>Подходит для <strong>консервативного портфеля</strong> с горизонтом до оферты. Доля в портфеле — до 8%. Альтернативы: ОФЗ-26243 (ниже доходность, нет кредитного риска), Газпромнефть 003P-12 (плавающий купон при сопоставимом рейтинге).</p>
+<p><strong>Итоговая оценка: 88/100</strong></p>
+`;
+
+function aiScoreClass(n){ return n >= 80 ? "s-high" : n >= 65 ? "s-med" : "s-low"; }
+
+const TABS = [
+  { id:"basic",  label:"Параметры",  icon:"info-circle"   },
+  { id:"chart",  label:"График",     icon:"graph-up"      },
+  { id:"coupons",label:"Купоны",     icon:"calendar3"     },
+  { id:"trades", label:"Стакан",     icon:"layers"        },
+  { id:"issuer", label:"Эмитент",    icon:"building"      },
+  { id:"ai",     label:"AI-анализ",  icon:"stars", count:4 },
+];
+
+function Sidebar(){
+  return (
+    <nav className="nav">
+      <div className="brand">
+        <div className="brand-mark">N</div>
+        <div>NLA <span style={{color:'var(--muted)',fontWeight:400}}>· bonds</span></div>
+      </div>
+      <div className="nav-section">Каталог</div>
+      <div className="nav-item active"><i className="bi bi-collection"/>По эмитентам</div>
+      <div className="nav-item"><i className="bi bi-calendar3"/>Месячные купоны</div>
+      <div className="nav-item"><i className="bi bi-stars"/>AI-аналитика</div>
+      <div className="nav-section">Портфель</div>
+      <div className="nav-item"><i className="bi bi-briefcase"/>Мои бумаги</div>
+      <div className="nav-item"><i className="bi bi-bell"/>Алерты</div>
+      <div className="nav-section">Инструменты</div>
+      <div className="nav-item"><i className="bi bi-table"/>Плоский список</div>
+      <div className="nav-item"><i className="bi bi-download"/>Экспорт</div>
+    </nav>
+  );
+}
+
+function Hero({ bond, onTheme, theme }){
+  const [fav, setFav] = useState(true);
+  return (
+    <div className="hero">
+      <div className="hero-top">
+        <div>
+          <div className="hero-title">
+            <h1>{bond.name}</h1>
+            <span className="hero-secid">{bond.secid}</span>
+          </div>
+          <div className="hero-issuer">
+            <a>{bond.issuer.name}</a>
+            <span className="dot"/>
+            <span style={{whiteSpace:'nowrap'}}>ID {bond.issuer.id}</span>
+            <span className="dot"/>
+            <span className="fullname" title={bond.fullname}>{bond.fullname}</span>
+          </div>
+          <div className="hero-tags">
+            <span className="tag live"><span className="pulse"/>Торгуется</span>
+            <span className={"rt " + bond.rating.tier} title={bond.rating.agency}>{bond.rating.value}</span>
+            {bond.flags.map(f => <span key={f} className="tag">{f}</span>)}
+          </div>
+        </div>
+        <div className="head-actions">
+          <button className={"star-btn" + (fav ? " fav" : "")} onClick={()=>setFav(!fav)} title="В избранное">
+            <i className={"bi " + (fav ? "bi-star-fill" : "bi-star")}/>
+          </button>
+          <div className="theme-pill">
+            <button className={theme==='light'?'active':''} onClick={()=>onTheme('light')}><i className="bi bi-sun"/></button>
+            <button className={theme==='dark'?'active':''} onClick={()=>onTheme('dark')}><i className="bi bi-moon-stars"/></button>
+          </div>
+        </div>
+      </div>
+
+      <div className="kpis">
+        <div className="kpi">
+          <div className="kpi-lbl">Цена</div>
+          <div className="kpi-val">{bond.price.toFixed(2).replace('.',',')}<span className="unit">%</span></div>
+          <div className={"kpi-sub " + (bond.priceChg>=0 ? "up":"down")}>
+            {bond.priceChg>=0?'+':''}{bond.priceChg.toFixed(2).replace('.',',')}% · {bond.priceChgAbs>=0?'+':''}{bond.priceChgAbs.toFixed(2).replace('.',',')} ₽
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-lbl">Доходность YTM</div>
+          <div className="kpi-val up">{bond.yield.toFixed(2).replace('.',',')}<span className="unit">%</span></div>
+          <div className="kpi-sub">{bond.yieldChg>=0?'+':''}{bond.yieldChg.toFixed(2).replace('.',',')} п.п.</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-lbl">НКД</div>
+          <div className="kpi-val">{bond.nkd.toFixed(2).replace('.',',')}<span className="unit">₽</span></div>
+          <div className="kpi-sub">{bond.nkdPctNom.toFixed(3).replace('.',',')}% от номинала</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-lbl">Купон · {bond.coupon_period} дн.</div>
+          <div className="kpi-val">{bond.coupon.toFixed(2).replace('.',',')}<span className="unit">%</span></div>
+          <div className="kpi-sub">{bond.couponValue.toFixed(2).replace('.',',')} ₽ след. 12.01.26</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-lbl">AI рейтинг</div>
+          <div className="kpi-val">
+            <span className={"ai-score " + aiScoreClass(bond.ai)} style={{fontSize:18,padding:'5px 9px'}}>
+              <span className="dot"/>{bond.ai}<span style={{opacity:.55}}>/100</span>
+            </span>
+          </div>
+          <div className="kpi-sub">{bond.ai_total} анализов</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value, mono=true, muted=false }){
+  return (
+    <div className="info-row">
+      <span className="info-lbl">{label}</span>
+      <span className={"info-val" + (mono?" mono":"") + (muted?" muted":"")}>{value}</span>
+    </div>
+  );
+}
+
+function BasicTab({ bond }){
+  return (
+    <div className="row">
+      <div className="panel">
+        <div className="panel-head"><i className="bi bi-info-circle"/><h3>Параметры выпуска</h3></div>
+        <InfoRow label="Полное название" value={bond.fullname} mono={false}/>
+        <InfoRow label="ISIN" value={bond.isin}/>
+        <InfoRow label="Тип облигации" value="Корпоративная" mono={false}/>
+        <InfoRow label="Категория" value="Биржевая" mono={false}/>
+        <InfoRow label="Уровень листинга" value="1"/>
+        <InfoRow label="Сектор" value="Финансы" mono={false}/>
+        <InfoRow label="Рыночный код" value="TQCB"/>
+        <InfoRow label="Статус торгов" value="Торгуется" mono={false}/>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head"><i className="bi bi-currency-dollar"/><h3>Финансовые параметры</h3></div>
+        <InfoRow label="Номинал" value="1 000,00 ₽"/>
+        <InfoRow label="Объём эмиссии" value="50 000 000 шт."/>
+        <InfoRow label="Размещено" value="50 000 000 шт."/>
+        <InfoRow label="Лот" value="1 шт. (1 000 ₽)"/>
+        <InfoRow label="Мин. шаг цены" value="0.01"/>
+        <InfoRow label="Кол-во знаков" value="2"/>
+        <InfoRow label="Валюта расчётов" value="RUB"/>
+        <InfoRow label="Номинал на дату" value="1 000,00 ₽"/>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head"><i className="bi bi-calendar3"/><h3>Даты</h3><span className="meta">осталось {bond.matDays} дн.</span></div>
+        <div className="progress-block">
+          <div className="progress-meta">
+            <span>Размещение · <b>09.04.24</b></span>
+            <span>Погашение · <b>{bond.mat.split('-').reverse().join('.')}</b></span>
+          </div>
+          <div className="progress-bar"><div className="progress-fill" style={{width: bond.lifeProgress + '%'}}/></div>
+          <div className="progress-foot">
+            <span>{bond.lifeProgress}% пройдено</span>
+            <span>осталось ~3,4 лет</span>
+          </div>
+        </div>
+        <InfoRow label="Погашение" value="12.04.2029"/>
+        <InfoRow label="Оферта (PUT)" value="15.04.2026 · 138 дн."/>
+        <InfoRow label="Следующий купон" value="12.01.2026 · 67 дн."/>
+        <InfoRow label="Дата расчётов" value="07.11.2025"/>
+        <InfoRow label="Пред. торговый день" value="06.11.2025"/>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head"><i className="bi bi-cash-stack"/><h3>Купонные параметры</h3></div>
+        <InfoRow label="Ставка купона" value="13,50%"/>
+        <InfoRow label="Сумма купона" value="67,31 ₽"/>
+        <InfoRow label="Период купона" value="91 дн. (ежеквартальный)" mono={false}/>
+        <InfoRow label="НКД" value="18,45 ₽"/>
+        <InfoRow label="НКД от номинала" value="1,845%"/>
+        <InfoRow label="Текущая доходность" value="13,52%"/>
+        <InfoRow label="Доходность по WAP" value="13,38%"/>
+        <InfoRow label="Тип купона" value="Фиксированный" mono={false}/>
+      </div>
+    </div>
+  );
+}
+
+function AiTab(){
+  const [activeId, setActiveId] = useState("a1");
+  const active = ANALYSES.find(a => a.id === activeId);
+  return (
+    <div className="ai-grid">
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div className="panel">
+          <div className="panel-head"><i className="bi bi-stars"/><h3>Анализ облигации через ИИ</h3></div>
+          <div className="form-block" style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div>
+              <label className="field-lbl">JSON данные для анализа · превью</label>
+              <pre className="code-block">{`{
+  "bond": {
+    "security": { "SECID": "RU000A105N84", "ISIN": "RU000A105N84" },
+    "marketdata": { "LAST": 99.86, "YIELD": 13.42, "DURATION": 3.1 },
+    "description": { "FACEVALUE": 1000, "MATDATE": "2029-04-12", "COUPONPERCENT": 13.5 },
+    "calculated": { "days_to_maturity": 1234, "is_float": false, "risk_category": "low" }
+  },
+  "dohodDetails": {
+    "credit_rating": "AAA",
+    "quality": 9.2,
+    "stability": 8.7,
+    "issuer_name": "ПАО Сбербанк"
+  }
+}`}</pre>
+              <div className="hint ok"><i className="bi bi-check-circle"/>Dohod.ru данные включены · кредитный рейтинг, качество эмитента</div>
+            </div>
+            <div>
+              <label className="field-lbl">Дополнительный JSON · опционально</label>
+              <textarea className="textarea" placeholder='{"note":"Дополнительные поля для анализа"}'></textarea>
+              <div className="hint" style={{color:'var(--muted)'}}>Поля будут объединены с основными данными</div>
+            </div>
+            <div>
+              <button className="submit-btn"><i className="bi bi-send-fill"/>Отправить в ИИ</button>
+            </div>
+          </div>
+        </div>
+
+        {active && (
+          <div className="panel">
+            <div className="ai-result-head">
+              <span className={"ai-score " + aiScoreClass(active.rating)} style={{fontSize:14,padding:'6px 10px'}}>
+                <span className="dot"/>{active.rating}<span style={{opacity:.55}}>/100</span>
+              </span>
+              <span className="hist-time">{active.time}</span>
+              <span style={{marginLeft:'auto',display:'flex',gap:6}}>
+                <button className="star-btn" style={{width:30,height:30}}><i className="bi bi-clipboard"/></button>
+                <button className="star-btn" style={{width:30,height:30}}><i className="bi bi-download"/></button>
+              </span>
+            </div>
+            <div className="ai-result-body" dangerouslySetInnerHTML={{__html: AI_RESULT_HTML}}/>
+          </div>
+        )}
+      </div>
+
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div className="panel">
+          <div className="panel-head"><i className="bi bi-clock-history"/><h3>История анализов</h3><span className="meta">{ANALYSES.length}</span></div>
+          {ANALYSES.map(a => (
+            <div key={a.id} className={"hist-item" + (a.id===activeId ? " active":"")} onClick={()=>setActiveId(a.id)}>
+              <div className="hist-row">
+                <div className="hist-meta">
+                  <span className={"ai-score " + aiScoreClass(a.rating)}>
+                    <span className="dot"/>{a.rating}<span style={{opacity:.55}}>/100</span>
+                  </span>
+                  <span className="hist-time">{a.time}</span>
+                </div>
+                <div className="hist-actions">
+                  <i className="bi bi-trash3" title="Удалить" style={{cursor:'default'}}/>
+                  <i className="bi bi-chevron-right"/>
+                </div>
+              </div>
+              <div className="hist-preview">{a.preview}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="panel">
+          <div className="panel-head"><i className="bi bi-bar-chart"/><h3>Статистика</h3></div>
+          <div className="stats-grid">
+            <div className="stat-cell">
+              <div className="stat-num">{ANALYSES.length}</div>
+              <div className="stat-lbl">Всего анализов</div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-num">
+                <span className={"ai-score " + aiScoreClass(85)}><span className="dot"/>85</span>
+              </div>
+              <div className="stat-lbl">Средний рейтинг</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Chart tab ────────────────────────────── */
+function ChartTab(){
+  const [range, setRange] = useState("3M");
+  const ranges = ["1W","1M","3M","6M","1Y","All"];
+
+  // generated price/yield series
+  const N = 60;
+  const W = 1080, H = 280, PAD_L = 50, PAD_R = 50, PAD_T = 12, PAD_B = 26;
+  const data = React.useMemo(()=>{
+    const a = []; let p = 98.6, y = 13.95;
+    for (let i=0;i<N;i++){
+      p += (Math.sin(i/4.2)*0.18 + (Math.random()-0.5)*0.22 + (i>40 ? 0.04 : 0));
+      y += -((Math.sin(i/4.2)*0.06 + (Math.random()-0.5)*0.07 + (i>40 ? 0.012 : 0))) ;
+      a.push({i, p:Math.max(96, Math.min(101, p)), y:Math.max(12.4, Math.min(15, y)),
+              date:`${String((i%28)+1).padStart(2,'0')}.${i<30?'10':'11'}.25`});
+    }
+    return a;
+  },[]);
+
+  const xs = i => PAD_L + (i/(N-1))*(W-PAD_L-PAD_R);
+  const pMin = 96.5, pMax = 100.5;
+  const yMin = 12.5, yMax = 14.8;
+  const ysP = v => PAD_T + (1-(v-pMin)/(pMax-pMin)) * (H-PAD_T-PAD_B);
+  const ysY = v => PAD_T + (1-(v-yMin)/(yMax-yMin)) * (H-PAD_T-PAD_B);
+
+  const linePath = (key, scale) => data.map((d,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${scale(d[key]).toFixed(1)}`).join(' ');
+  const areaPath = (key, scale) => `${linePath(key,scale)} L${xs(N-1).toFixed(1)},${(H-PAD_B).toFixed(1)} L${xs(0).toFixed(1)},${(H-PAD_B).toFixed(1)} Z`;
+
+  const [hover, setHover] = useState(40);
+  const cur = data[hover];
+
+  const last = data[N-1], first = data[0];
+
+  return (
+    <div className="panel">
+      <div className="chart-toolbar">
+        <div className="seg">
+          {ranges.map(r => <button key={r} className={r===range?'active':''} onClick={()=>setRange(r)}>{r}</button>)}
+        </div>
+        <div className="legend" style={{marginLeft:'auto'}}>
+          <span><span className="swatch" style={{background:'var(--accent-current)'}}/>Цена, %</span>
+          <span><span className="swatch" style={{background:'var(--pos)'}}/>Доходность, %</span>
+          <span><span className="swatch" style={{background:'var(--muted-2)',height:'1px',borderTop:'1px dashed var(--muted-2)'}}/>OFZ benchmark</span>
+        </div>
+      </div>
+      <div className="chart-stage">
+        <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:H,display:'block'}} onMouseMove={e=>{
+          const r = e.currentTarget.getBoundingClientRect();
+          const x = (e.clientX - r.left) * (W/r.width);
+          const i = Math.max(0, Math.min(N-1, Math.round((x-PAD_L)/((W-PAD_L-PAD_R)/(N-1)))));
+          setHover(i);
+        }}>
+          <defs>
+            <linearGradient id="grad-price" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="var(--accent-current)" stopOpacity="0.22"/>
+              <stop offset="100%" stopColor="var(--accent-current)" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          {/* price grid */}
+          {[97,98,99,100].map(v => (
+            <g key={v}>
+              <line x1={PAD_L} x2={W-PAD_R} y1={ysP(v)} y2={ysP(v)} stroke="var(--border)" strokeDasharray="2 4"/>
+              <text x={PAD_L-8} y={ysP(v)+3} textAnchor="end" fontSize="10" fontFamily="JetBrains Mono" fill="var(--muted)">{v.toFixed(0)}</text>
+            </g>
+          ))}
+          {/* yield grid right */}
+          {[13,13.5,14,14.5].map(v => (
+            <text key={v} x={W-PAD_R+8} y={ysY(v)+3} textAnchor="start" fontSize="10" fontFamily="JetBrains Mono" fill="var(--pos)" opacity=".7">{v.toFixed(1)}</text>
+          ))}
+          {/* x labels */}
+          {[0,15,30,45,59].map(i => (
+            <text key={i} x={xs(i)} y={H-8} textAnchor="middle" fontSize="10" fontFamily="JetBrains Mono" fill="var(--muted)">{data[i].date}</text>
+          ))}
+          {/* OFZ benchmark dashed */}
+          <path d={data.map((d,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${ysY(d.y-1.8).toFixed(1)}`).join(' ')} fill="none" stroke="var(--muted-2)" strokeWidth="1" strokeDasharray="3 3"/>
+          {/* area */}
+          <path d={areaPath('p', ysP)} fill="url(#grad-price)"/>
+          {/* yield line */}
+          <path d={linePath('y', ysY)} fill="none" stroke="var(--pos)" strokeWidth="1.5"/>
+          {/* price line */}
+          <path d={linePath('p', ysP)} fill="none" stroke="var(--accent-current)" strokeWidth="2"/>
+          {/* hover */}
+          <line x1={xs(hover)} x2={xs(hover)} y1={PAD_T} y2={H-PAD_B} stroke="var(--ink)" strokeOpacity=".15"/>
+          <circle cx={xs(hover)} cy={ysP(cur.p)} r="4" fill="var(--accent-current)" stroke="var(--surface)" strokeWidth="2"/>
+          <circle cx={xs(hover)} cy={ysY(cur.y)} r="3" fill="var(--pos)" stroke="var(--surface)" strokeWidth="2"/>
+        </svg>
+        <div className="chart-tt" style={{left: `${(xs(hover)/W)*100}%`, top: 14, transform:'translateX(-50%)'}}>
+          <div className="tt-date">{cur.date}</div>
+          <div className="tt-row"><span><span className="swatch" style={{background:'var(--accent-current)'}}/>Цена</span><b>{cur.p.toFixed(2)}%</b></div>
+          <div className="tt-row"><span><span className="swatch" style={{background:'var(--pos)'}}/>YTM</span><b>{cur.y.toFixed(2)}%</b></div>
+          <div className="tt-row"><span><span className="swatch" style={{background:'var(--muted-2)'}}/>Спред к ОФЗ</span><b>+{((cur.y-1.8)-(cur.y-2.6)).toFixed(2)*100|0} б.п.</b></div>
+        </div>
+      </div>
+      <div className="chart-stats">
+        <div className="stat-cell"><div className="stat-num">{last.p.toFixed(2)}</div><div className="stat-lbl" style={{color:'var(--muted)'}}>Last · цена</div></div>
+        <div className="stat-cell"><div className="stat-num" style={{color:'var(--pos)'}}>+{(last.p-first.p).toFixed(2)}</div><div className="stat-lbl" style={{color:'var(--muted)'}}>Изм. за период</div></div>
+        <div className="stat-cell"><div className="stat-num">{Math.max(...data.map(d=>d.p)).toFixed(2)} / {Math.min(...data.map(d=>d.p)).toFixed(2)}</div><div className="stat-lbl" style={{color:'var(--muted)'}}>Hi / Lo</div></div>
+        <div className="stat-cell" style={{borderRight:0}}><div className="stat-num">85,4 М ₽</div><div className="stat-lbl" style={{color:'var(--muted)'}}>Avg оборот / день</div></div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Coupons tab ──────────────────────────── */
+function CouponsTab(){
+  const today = new Date(2025, 10, 6);
+  const COUPONS = [
+    { n:1,  date:"2024-07-09", amt:67.31, status:"paid"   },
+    { n:2,  date:"2024-10-08", amt:67.31, status:"paid"   },
+    { n:3,  date:"2025-01-07", amt:67.31, status:"paid"   },
+    { n:4,  date:"2025-04-08", amt:67.31, status:"paid"   },
+    { n:5,  date:"2025-07-08", amt:67.31, status:"paid"   },
+    { n:6,  date:"2025-10-07", amt:67.31, status:"paid"   },
+    { n:7,  date:"2026-01-12", amt:67.31, status:"next"   },
+    { n:8,  date:"2026-04-15", amt:67.31, status:"put"    },
+    { n:9,  date:"2026-07-14", amt:67.31, status:"future" },
+    { n:10, date:"2026-10-13", amt:67.31, status:"future" },
+    { n:11, date:"2027-01-12", amt:67.31, status:"future" },
+    { n:12, date:"2027-04-13", amt:67.31, status:"future" },
+    { n:13, date:"2027-07-13", amt:67.31, status:"future" },
+    { n:14, date:"2027-10-12", amt:67.31, status:"future" },
+    { n:15, date:"2028-01-11", amt:67.31, status:"future" },
+    { n:16, date:"2028-04-11", amt:67.31, status:"future" },
+    { n:17, date:"2028-07-11", amt:67.31, status:"future" },
+    { n:18, date:"2028-10-10", amt:67.31, status:"future" },
+    { n:19, date:"2029-01-09", amt:67.31, status:"future" },
+    { n:20, date:"2029-04-12", amt:1067.31, status:"future", isMat:true },
+  ];
+  const fmt = d => { const [y,m,dd]=d.split('-'); return `${dd}.${m}.${y}`; };
+  const fmtMoney = v => v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ₽';
+  const daysTo = ds => { const d = new Date(ds); return Math.round((d - today)/86400000); };
+  const totalPaid = COUPONS.filter(c=>c.status==='paid').reduce((s,c)=>s+c.amt,0);
+  const totalFuture = COUPONS.filter(c=>c.status!=='paid').reduce((s,c)=>s+c.amt,0);
+
+  return (
+    <div className="panel">
+      <div className="panel-head"><i className="bi bi-calendar3"/><h3>График купонных выплат</h3><span className="meta">{COUPONS.length} купонов</span></div>
+      <div className="coupon-summary">
+        <div className="cs-cell"><div className="cs-lbl">Выплачено</div><div className="cs-val">{fmtMoney(totalPaid)}</div><div className="cs-sub">6 из {COUPONS.length} купонов</div></div>
+        <div className="cs-cell"><div className="cs-lbl">Следующий купон</div><div className="cs-val up">12.01.2026</div><div className="cs-sub">через 67 дн. · 67,31 ₽</div></div>
+        <div className="cs-cell"><div className="cs-lbl">Оферта (PUT)</div><div className="cs-val">15.04.2026</div><div className="cs-sub">через 138 дн.</div></div>
+        <div className="cs-cell"><div className="cs-lbl">К погашению</div><div className="cs-val">{fmtMoney(totalFuture)}</div><div className="cs-sub">купоны + номинал</div></div>
+      </div>
+      <table className="coupon-tbl">
+        <thead>
+          <tr><th>№</th><th>Дата выплаты</th><th>Период</th><th className="right">Сумма</th><th className="right">Дней</th><th>Статус</th></tr>
+        </thead>
+        <tbody>
+          {COUPONS.map(c => {
+            const d = daysTo(c.date);
+            return (
+              <tr key={c.n} className={c.status==='paid'?'paid':c.status==='next'?'next':''}>
+                <td className="right" style={{color:'var(--muted)',fontFamily:"'JetBrains Mono',monospace"}}>{String(c.n).padStart(2,'0')}</td>
+                <td>{fmt(c.date)}</td>
+                <td style={{color:'var(--muted)'}}>91 дн.</td>
+                <td className="right">{fmtMoney(c.amt)}{c.isMat && <span style={{color:'var(--muted)',fontFamily:'Inter',fontWeight:400,marginLeft:6,fontSize:11}}>+ номинал</span>}</td>
+                <td className="right" style={{color:'var(--muted)'}}>{c.status==='paid' ? `${-d}` : `+${d}`}</td>
+                <td>
+                  {c.status==='paid'   && <span className="pill-status paid"><i className="bi bi-check-lg"/>Выплачен</span>}
+                  {c.status==='next'   && <span className="pill-status next"><i className="bi bi-arrow-right-short"/>Ближайший</span>}
+                  {c.status==='put'    && <span className="pill-status put"><i className="bi bi-flag-fill"/>Оферта</span>}
+                  {c.status==='future' && !c.isMat && <span className="pill-status future">Ожидается</span>}
+                  {c.isMat             && <span className="pill-status put">Погашение</span>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ─── Order book / trades ──────────────────── */
+function TradesTab(){
+  const ASKS = [
+    { p:99.92, vol:1240, total:1240 },
+    { p:99.91, vol:850,  total:2090 },
+    { p:99.90, vol:2150, total:4240 },
+    { p:99.89, vol:560,  total:4800 },
+    { p:99.88, vol:1820, total:6620 },
+  ];
+  const BIDS = [
+    { p:99.86, vol:2480, total:2480 },
+    { p:99.85, vol:1320, total:3800 },
+    { p:99.84, vol:980,  total:4780 },
+    { p:99.83, vol:2150, total:6930 },
+    { p:99.82, vol:740,  total:7670 },
+  ];
+  const TRADES = [
+    { t:"15:42:08", p:99.86, vol:50,  side:"buy"  },
+    { t:"15:41:53", p:99.85, vol:120, side:"sell" },
+    { t:"15:41:31", p:99.86, vol:80,  side:"buy"  },
+    { t:"15:41:12", p:99.86, vol:30,  side:"buy"  },
+    { t:"15:40:48", p:99.85, vol:200, side:"sell" },
+    { t:"15:40:22", p:99.86, vol:100, side:"buy"  },
+    { t:"15:39:58", p:99.85, vol:60,  side:"sell" },
+    { t:"15:39:33", p:99.87, vol:40,  side:"buy"  },
+    { t:"15:39:11", p:99.86, vol:150, side:"buy"  },
+    { t:"15:38:42", p:99.85, vol:90,  side:"sell" },
+    { t:"15:38:18", p:99.85, vol:200, side:"sell" },
+    { t:"15:37:55", p:99.86, vol:75,  side:"buy"  },
+  ];
+  const maxOb = Math.max(...ASKS.map(a=>a.vol), ...BIDS.map(b=>b.vol));
+  return (
+    <div className="ob-grid">
+      <div className="panel">
+        <div className="panel-head"><i className="bi bi-layers"/><h3>Стакан</h3><span className="meta">обновлено 1с назад</span></div>
+        <table className="ob-tbl">
+          <thead><tr><th>Цена</th><th>Объём</th><th>Накоп.</th></tr></thead>
+          <tbody>
+            {ASKS.slice().reverse().map(a => (
+              <tr key={'a'+a.p} className="ask">
+                <td>{a.p.toFixed(2)}</td>
+                <td>{a.vol.toLocaleString('ru-RU')}<span className="ob-bar ask" style={{width:`${(a.vol/maxOb)*55}%`}}/></td>
+                <td style={{color:'var(--muted)'}}>{a.total.toLocaleString('ru-RU')}</td>
+              </tr>
+            ))}
+            <tr className="spread"><td colSpan="3">spread 0.04 · 4 б.п.</td></tr>
+            {BIDS.map(b => (
+              <tr key={'b'+b.p} className="bid">
+                <td>{b.p.toFixed(2)}</td>
+                <td>{b.vol.toLocaleString('ru-RU')}<span className="ob-bar bid" style={{width:`${(b.vol/maxOb)*55}%`}}/></td>
+                <td style={{color:'var(--muted)'}}>{b.total.toLocaleString('ru-RU')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head"><i className="bi bi-clock"/><h3>Лента сделок</h3><span className="meta">today · 1 247 шт.</span></div>
+        <table className="trades-tbl">
+          <thead><tr><th>Время</th><th>Цена</th><th>Объём</th><th>Сторона</th></tr></thead>
+          <tbody>
+            {TRADES.map((t,i) => (
+              <tr key={i}>
+                <td>{t.t}</td>
+                <td>{t.p.toFixed(2)}</td>
+                <td>{t.vol}</td>
+                <td className={t.side}>{t.side==='buy'?'BUY':'SELL'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Issuer profile ───────────────────────── */
+function IssuerTab(){
+  const BONDS = [
+    { secid:"SBER001P-15R", name:"Сбер Б1Р-15R",     mat:"2027-03-22", coupon:"9,75",  yield:"12,84", price:"96,42", current:false },
+    { secid:"SBER001P-18R", name:"Сбер Б1Р-18R",     mat:"2028-09-14", coupon:"11,00", yield:"13,12", price:"97,18", current:false },
+    { secid:"RU000A105N84", name:"Сбер Б1Р-22R",     mat:"2029-04-12", coupon:"13,50", yield:"13,42", price:"99,86", current:true  },
+    { secid:"SBER002P-04R", name:"Сбер Б2Р-04R",     mat:"2030-08-07", coupon:"12,25", yield:"13,28", price:"94,55", current:false },
+    { secid:"SBER003P-01R", name:"Сбер Б3Р-01R · флоатер", mat:"2031-02-19", coupon:"КС+1,3", yield:"14,18", price:"100,12", current:false },
+  ];
+  const RATINGS = [
+    { agency:"АКРА",       grade:"AAA(RU)", outlook:"Стабильный", date:"15.06.2025" },
+    { agency:"Эксперт РА", grade:"ruAAA",   outlook:"Стабильный", date:"22.04.2025" },
+    { agency:"НРА",        grade:"AAA|ru|", outlook:"Позитивный", date:"08.07.2025" },
+    { agency:"НКР",        grade:"AAA.ru",  outlook:"Стабильный", date:"19.05.2025" },
+  ];
+  const QUALITY = [
+    { lbl:"Кредитное качество",  v:9.2 },
+    { lbl:"Финансовая стабильность", v:8.7 },
+    { lbl:"Прозрачность",        v:9.0 },
+    { lbl:"Корп. управление",    v:8.4 },
+  ];
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div className="panel">
+        <div className="issuer-hdr">
+          <div className="issuer-logo">С</div>
+          <div className="issuer-meta">
+            <h2>ПАО Сбербанк</h2>
+            <div className="sub">ID 1234 · Финансы · Системно-значимый банк · ОГРН 1027700132195</div>
+            <div className="tags">
+              <span className="tag">Системно-значимый</span>
+              <span className="tag">Гос. участие 50%+</span>
+              <span className="tag">Уровень 1</span>
+            </div>
+          </div>
+          <button className="submit-btn"><i className="bi bi-box-arrow-up-right"/>Все эмитенты</button>
+        </div>
+        <div className="issuer-stats">
+          <div className="cs-cell"><div className="cs-lbl">Облигаций в обращении</div><div className="cs-val">23</div><div className="cs-sub">5 — флоатеры, 18 — фикс</div></div>
+          <div className="cs-cell"><div className="cs-lbl">Общий объём</div><div className="cs-val">1,2 трлн ₽</div><div className="cs-sub">по номиналу</div></div>
+          <div className="cs-cell"><div className="cs-lbl">Средняя YTM</div><div className="cs-val up">13,18%</div><div className="cs-sub">взвеш. по объёму</div></div>
+          <div className="cs-cell"><div className="cs-lbl">AI-рейтинг эмитента</div><div className="cs-val"><span className="ai-score s-high" style={{fontSize:16,padding:'5px 9px'}}><span className="dot"/>89<span style={{opacity:.55}}>/100</span></span></div><div className="cs-sub">по 47 анализам</div></div>
+        </div>
+      </div>
+
+      <div className="row">
+        <div className="panel" style={{gridColumn:'span 2'}}>
+          <div className="panel-head"><i className="bi bi-list-ul"/><h3>Облигации эмитента</h3><span className="meta">5 из 23</span></div>
+          <table className="issuer-bonds-tbl">
+            <thead><tr><th>SECID</th><th>Название</th><th>Погашение</th><th className="right">Купон</th><th className="right">Цена</th><th className="right">YTM</th></tr></thead>
+            <tbody>
+              {BONDS.map(b => (
+                <tr key={b.secid} className={b.current?'current':''}>
+                  <td style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11.5,color:'var(--muted)'}}>{b.secid}</td>
+                  <td className="name">{b.name}{b.current && <span className="you-here">текущая</span>}</td>
+                  <td style={{color:'var(--muted)'}}>{b.mat.split('-').reverse().join('.')}</td>
+                  <td className="right">{b.coupon}{b.coupon.includes('КС') ? '' : '%'}</td>
+                  <td className="right">{b.price}</td>
+                  <td className="right" style={{color:'var(--pos)'}}>{b.yield}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="row">
+        <div className="panel">
+          <div className="panel-head"><i className="bi bi-shield-check"/><h3>Кредитные рейтинги</h3></div>
+          <div className="ratings-block">
+            {RATINGS.map(r => (
+              <div key={r.agency} className="rating-card">
+                <div className="agency">{r.agency}</div>
+                <div className="grade">{r.grade}</div>
+                <div className={"outlook " + (r.outlook==='Стабильный'?'stable':'')}>
+                  <i className={"bi bi-" + (r.outlook==='Позитивный'?'arrow-up-right':'dash')}/>
+                  {r.outlook}
+                </div>
+                <div className="updated">обновлено {r.date}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head"><i className="bi bi-bar-chart-line"/><h3>Качество эмитента</h3><span className="meta">по dohod.ru</span></div>
+          <div className="quality-block">
+            {QUALITY.map(q => (
+              <div key={q.lbl} className="qbar">
+                <span className="qbar-lbl">{q.lbl}</span>
+                <span className="qbar-track"><span className="qbar-fill pos" style={{width:`${q.v*10}%`}}/></span>
+                <span className="qbar-val">{q.v.toFixed(1)}</span>
+              </div>
+            ))}
+            <div style={{borderTop:'1px solid var(--border)',marginTop:14,paddingTop:14,display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+              <span style={{fontSize:12,color:'var(--muted)'}}>Сводный балл</span>
+              <span style={{font:"700 22px/1 'JetBrains Mono',monospace",color:'var(--pos)'}}>8,8 / 10</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StubTab({ icon, label, hint }){
+  return (
+    <div className="panel" style={{padding:'48px 24px',textAlign:'center'}}>
+      <i className={"bi bi-" + icon} style={{fontSize:34,color:'var(--muted-2)'}}/>
+      <h3 style={{margin:'12px 0 4px',fontSize:15,fontWeight:600,color:'var(--ink-2)'}}>{label}</h3>
+      <p style={{color:'var(--muted)',fontSize:13,margin:0}}>{hint}</p>
+    </div>
+  );
+}
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "palette": "violet",
+  "theme": "light"
+}/*EDITMODE-END*/;
+
+function App(){
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [tab, setTab] = useState("basic");
+
+  useEffect(()=>{
+    document.documentElement.setAttribute('data-theme', t.theme);
+    document.documentElement.setAttribute('data-palette', t.palette);
+  }, [t.theme, t.palette]);
+
+  return (
+    <>
+      <div className="shell">
+        <Sidebar/>
+        <main className="main">
+          <div className="crumbs">
+            <a href="index.html">Облигации</a><i className="bi bi-chevron-right"/>
+            <a href="index.html">{BOND.issuer.name}</a><i className="bi bi-chevron-right"/>
+            <span className="current">{BOND.name}</span>
+          </div>
+
+          <Hero bond={BOND} theme={t.theme} onTheme={v=>setTweak('theme',v)}/>
+
+          <div className="tabs" role="tablist">
+            {TABS.map(T => (
+              <button
+                key={T.id}
+                className={"tab" + (tab===T.id ? " active":"")}
+                onClick={()=>setTab(T.id)}
+              >
+                <i className={"bi bi-" + T.icon}/>
+                {T.label}
+                {T.count != null && <span className="count">{T.count}</span>}
+              </button>
+            ))}
+          </div>
+
+          {tab === "basic"   && <BasicTab bond={BOND}/>}
+          {tab === "ai"      && <AiTab/>}
+          {tab === "chart"   && <ChartTab/>}
+          {tab === "coupons" && <CouponsTab/>}
+          {tab === "trades"  && <TradesTab/>}
+          {tab === "issuer"  && <IssuerTab/>}
+        </main>
+      </div>
+
+      <TweaksPanel>
+        <TweakSection label="Тема"/>
+        <TweakRadio label="Mode" value={t.theme} options={['light','dark']} onChange={v=>setTweak('theme',v)}/>
+        <TweakSection label="Палитра"/>
+        <TweakRadio label="Палитра" value={t.palette} options={['violet','blue','teal','graphite']} onChange={v=>setTweak('palette',v)}/>
+        <TweakSection label="Активная вкладка"/>
+        <TweakSelect label="Tab" value={tab} options={TABS.map(T=>T.id)} onChange={v=>setTab(v)}/>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+</script>
+</body>
+</html>

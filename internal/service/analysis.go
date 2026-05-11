@@ -16,16 +16,16 @@ import (
 
 	"nla/internal/client/openai"
 	"nla/internal/model"
-	"nla/internal/mongo"
+	"nla/internal/repository"
 )
 
 type AnalysisService struct {
-	repo       *mongo.AnalysisRepo
+	repo       *repository.AnalysisRepo
 	openai     *openai.Client
 	promptPath string
 }
 
-func NewAnalysisService(repo *mongo.AnalysisRepo, openaiClient *openai.Client, promptPath string) *AnalysisService {
+func NewAnalysisService(repo *repository.AnalysisRepo, openaiClient *openai.Client, promptPath string) *AnalysisService {
 	return &AnalysisService{
 		repo:       repo,
 		openai:     openaiClient,

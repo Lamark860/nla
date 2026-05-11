@@ -1,0 +1,171 @@
+/* ============================================================
+   NLA · Design tokens (violet redesign)
+   ------------------------------------------------------------
+   Полностью заменяет блоки :root и [data-theme="dark"] из
+   текущего assets/css/main.css (строки 6–107). Всё остальное
+   в main.css трогать не нужно.
+
+   Имена токенов сохранены — все 30+ компонентов, которые
+   читают var(--nla-*), продолжат работать без правок.
+   Меняются только значения + добавляются новые токены под
+   тем же префиксом.
+
+   Палитра: violet, акцент 5b3aa8 / b89cff (light/dark).
+   Типографика: Inter (UI) + JetBrains Mono (числа/код, уже
+   подключён на странице, токен ниже).
+   ============================================================ */
+
+:root {
+    /* ─── Fonts ─────────────────────────────────────────── */
+    --nla-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --nla-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* ─── Primary palette · violet ──────────────────────── */
+    --nla-primary:         #5b3aa8;   /* основной акцент light */
+    --nla-primary-hover:   #4a2e8c;   /* hover/active */
+    --nla-primary-light:   #ede8f8;   /* мягкая заливка под акцентом (badges, фон активного таба) */
+    --nla-primary-subtle:  rgba(91, 58, 168, 0.08); /* почти-прозрачный hover/selection */
+    --nla-primary-ink:     #3b2480;   /* НОВЫЙ: текст по primary-light (контрастный) */
+
+    /* ─── Semantic colors ───────────────────────────────── */
+    --nla-success:         #0d7a4e;   /* зелёный финансовый, не «весёлый» */
+    --nla-success-light:   #d4ecdf;
+    --nla-danger:          #c2410c;   /* red-orange, для падений; чище чем pure red */
+    --nla-danger-light:    #fce4d4;
+    --nla-warning:         #b45309;
+    --nla-warning-light:   #fef3c7;
+    --nla-info:            #0369a1;
+
+    /* ─── Surfaces ──────────────────────────────────────── */
+    --nla-bg:              #faf8f5;   /* warm off-white — фон страницы */
+    --nla-bg-card:         #ffffff;   /* поверхность карточки */
+    --nla-bg-hover:        #f3efea;   /* slight warm */
+    --nla-bg-input:        #ffffff;
+    --nla-bg-code:         #f3efea;
+    --nla-bg-elevated:     #fbf9f6;   /* НОВЫЙ: surface-2 для шапок панелей, второго слоя */
+    --nla-bg-subtle:       #f3efea;   /* НОВЫЙ: nav-фон, неактивные сегменты */
+
+    /* ─── Text ──────────────────────────────────────────── */
+    --nla-text:            #1a1814;   /* главный, тёплый чёрный */
+    --nla-text-secondary:  #45413a;
+    --nla-text-muted:      #8a8478;   /* AA: 4.6:1 на --nla-bg */
+    --nla-text-subtle:     #b0a99c;   /* НОВЫЙ: для мета-данных, дат-плэйсхолдеров */
+    --nla-text-inverse:    #ffffff;
+
+    /* ─── Borders ───────────────────────────────────────── */
+    --nla-border:          #ece7df;
+    --nla-border-strong:   #d8d1c5;   /* НОВЫЙ: акцентные обводки на тегах, dividers в сводках */
+    --nla-border-light:    #f3efea;
+
+    /* ─── Shadows ───────────────────────────────────────── */
+    --nla-shadow-sm:  0 1px 2px rgba(40, 30, 15, .04), 0 1px 1px rgba(40, 30, 15, .03);
+    --nla-shadow:     0 1px 3px rgba(40, 30, 15, .06), 0 4px 14px rgba(40, 30, 15, .06);
+    --nla-shadow-md:  0 4px 6px -1px rgba(40, 30, 15, .08), 0 2px 4px -2px rgba(40, 30, 15, .05);
+    --nla-shadow-lg:  0 10px 15px -3px rgba(40, 30, 15, .08), 0 4px 6px -4px rgba(40, 30, 15, .04);
+    --nla-shadow-xl:  0 20px 35px -5px rgba(40, 30, 15, .12), 0 10px 15px -5px rgba(40, 30, 15, .04); /* НОВЫЙ */
+
+    /* ─── Radius ────────────────────────────────────────── */
+    --nla-radius-sm:   6px;
+    --nla-radius:      10px;
+    --nla-radius-lg:   14px;
+    --nla-radius-xl:   20px;
+    --nla-radius-2xl:  28px;          /* НОВЫЙ: для крупных hero-блоков */
+    --nla-radius-pill: 999px;         /* НОВЫЙ: пиллы / прогресс-бары / точки статуса */
+
+    /* ─── Spacing scale (НОВЫЕ) ─────────────────────────── */
+    --nla-space-1:  4px;
+    --nla-space-2:  8px;
+    --nla-space-3:  12px;
+    --nla-space-4:  16px;
+    --nla-space-5:  20px;
+    --nla-space-6:  24px;
+    --nla-space-8:  32px;
+    --nla-space-10: 40px;
+
+    /* ─── Navbar ────────────────────────────────────────── */
+    --nla-navbar-bg:     rgba(250, 248, 245, 0.85);
+    --nla-navbar-text:   #45413a;
+    --nla-navbar-border: rgba(40, 30, 15, 0.06);
+
+    /* ─── Chart colors ───────────────────────────────────
+       Меняем под violet-палитру, но сохраняем
+       порядок 1..6 — все Chart.js конфиги остаются как есть.
+       1: основной акцент (violet)
+       2: positive (green) — обычно YTM / yield
+       3: warning amber — спред / benchmark
+       4: negative (red-orange) — drawdown
+       5: cool teal — secondary lines
+       6: deep magenta — accent secondary
+    */
+    --nla-chart-1: #5b3aa8;
+    --nla-chart-2: #0d7a4e;
+    --nla-chart-3: #b45309;
+    --nla-chart-4: #c2410c;
+    --nla-chart-5: #0e7a78;
+    --nla-chart-6: #8b5cf6;
+}
+
+/* ============================================================
+   Dark theme — переопределяем те же имена.
+   Включается атрибутом data-theme="dark" на <html> через
+   @nuxtjs/color-mode. Никаких новых селекторов — только
+   значения тех же CSS-переменных.
+   ============================================================ */
+[data-theme="dark"] {
+    /* ─── Primary · violet (lifted) ─────────────────────── */
+    --nla-primary:         #b89cff;   /* в тёмной берём осветлённый — контраст к фону */
+    --nla-primary-hover:   #d0baff;
+    --nla-primary-light:   #2a1e54;   /* «soft» в темноте — это глубокий violet, не светлый */
+    --nla-primary-subtle:  rgba(184, 156, 255, 0.10);
+    --nla-primary-ink:     #b89cff;
+
+    /* ─── Semantic ──────────────────────────────────────── */
+    --nla-success:         #38c172;
+    --nla-success-light:   rgba(56, 193, 114, 0.16);
+    --nla-danger:          #ef6c4e;
+    --nla-danger-light:    rgba(239, 108, 78, 0.16);
+    --nla-warning:         #e8b75d;
+    --nla-warning-light:   rgba(232, 183, 93, 0.16);
+    --nla-info:            #67b8e0;
+
+    /* ─── Surfaces ──────────────────────────────────────── */
+    --nla-bg:              #0c0e0d;   /* почти чёрный, слегка тёплый */
+    --nla-bg-card:         #161917;   /* поверхность карточки */
+    --nla-bg-hover:        #1d211e;
+    --nla-bg-input:        #161917;
+    --nla-bg-code:         #131614;
+    --nla-bg-elevated:     #1d211e;
+    --nla-bg-subtle:       #131614;
+
+    /* ─── Text — AA на --nla-bg #0c0e0d ─────────────────── */
+    --nla-text:            #e7ece7;   /* 14.6:1 */
+    --nla-text-secondary:  #b8c0b8;   /* 8.9:1  */
+    --nla-text-muted:      #919a91;   /* 5.4:1 — поднят с #8b9bb5 для AA */
+    --nla-text-subtle:     #6f786f;   /* 3.6:1 — только для крупных элементов */
+    --nla-text-inverse:    #0c0e0d;
+
+    /* ─── Borders ───────────────────────────────────────── */
+    --nla-border:          #262a27;
+    --nla-border-strong:   #353a36;
+    --nla-border-light:    #1d211e;
+
+    /* ─── Shadows ───────────────────────────────────────── */
+    --nla-shadow-sm:  0 1px 2px rgba(0, 0, 0, .4);
+    --nla-shadow:     0 1px 3px rgba(0, 0, 0, .5), 0 4px 18px rgba(0, 0, 0, .5);
+    --nla-shadow-md:  0 4px 6px -1px rgba(0, 0, 0, .5), 0 2px 4px -2px rgba(0, 0, 0, .4);
+    --nla-shadow-lg:  0 10px 15px -3px rgba(0, 0, 0, .55), 0 4px 6px -4px rgba(0, 0, 0, .4);
+    --nla-shadow-xl:  0 20px 35px -5px rgba(0, 0, 0, .65), 0 10px 15px -5px rgba(0, 0, 0, .4);
+
+    /* ─── Navbar ────────────────────────────────────────── */
+    --nla-navbar-bg:     rgba(12, 14, 13, 0.9);
+    --nla-navbar-text:   #b8c0b8;
+    --nla-navbar-border: rgba(255, 255, 255, 0.06);
+
+    /* ─── Chart colors — light-versions for dark bg ─────── */
+    --nla-chart-1: #b89cff;
+    --nla-chart-2: #38c172;
+    --nla-chart-3: #e8b75d;
+    --nla-chart-4: #ef6c4e;
+    --nla-chart-5: #4dd0bd;
+    --nla-chart-6: #c4a8ff;
+}

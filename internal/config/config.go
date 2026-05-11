@@ -12,15 +12,6 @@ type Config struct {
 	// PostgreSQL
 	PostgresDSN string
 
-	// MongoDB
-	MongoURI string
-	MongoDB  string
-
-	// Redis
-	RedisAddr     string
-	RedisPassword string
-	RedisDB       int
-
 	// JWT
 	JWTSecret     string
 	JWTExpiration int // hours
@@ -39,13 +30,6 @@ func Load() *Config {
 		Environment: getEnv("ENVIRONMENT", "development"),
 
 		PostgresDSN: getEnv("POSTGRES_DSN", "postgres://nla:nla_secret@postgres:5432/nla?sslmode=disable"),
-
-		MongoURI: getEnv("MONGO_URI", "mongodb://mongo:27017"),
-		MongoDB:  getEnv("MONGO_DB", "nla"),
-
-		RedisAddr:     getEnv("REDIS_ADDR", "redis:6379"),
-		RedisPassword: getEnv("REDIS_PASSWORD", ""),
-		RedisDB:       getEnvInt("REDIS_DB", 0),
 
 		JWTSecret:     getEnv("JWT_SECRET", "change-me-in-production"),
 		JWTExpiration: getEnvInt("JWT_EXPIRATION_HOURS", 72),

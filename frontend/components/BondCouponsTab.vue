@@ -1,100 +1,131 @@
 <template>
   <div class="animate-fade-in">
-    <!-- Coupon parameters stat-cards -->
-    <div class="row g-3 mb-4">
-      <div class="col-6 col-lg-3">
-        <div class="stat-card">
-          <div class="stat-label">Ставка купона</div>
-          <div class="stat-value">{{ fmt.percent(bond.coupon_percent) }}</div>
-          <div class="stat-sub">годовых</div>
+    <!-- Block 1 — Coupon summary (4 KPI cells) -->
+    <Panel flush>
+      <template #head>
+        <div class="cp-head">
+          <div class="cp-title">
+            <i class="bi bi-calendar3" aria-hidden="true"></i>
+            <span>График купонных выплат</span>
+          </div>
+          <span class="cp-meta">{{ coupons.length }} купонов</span>
         </div>
-      </div>
-      <div class="col-6 col-lg-3">
-        <div class="stat-card">
-          <div class="stat-label">Сумма купона</div>
-          <div class="stat-value">{{ fmt.priceRub(bond.coupon_value) }}</div>
-          <div class="stat-sub">за выплату</div>
-        </div>
-      </div>
-      <div class="col-6 col-lg-3">
-        <div class="stat-card">
-          <div class="stat-label">Период</div>
-          <div class="stat-value">{{ bond.coupon_period }} <span class="small fw-normal text-muted">дн.</span></div>
-          <div class="stat-sub">{{ formatPeriodName(bond.coupon_period) }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-lg-3">
-        <div class="stat-card">
-          <div class="stat-label">Следующий купон</div>
-          <div class="stat-value" style="font-size: 1rem">{{ bond.next_coupon ? fmt.dateShort(bond.next_coupon) : '—' }}</div>
-          <div v-if="daysToNextCoupon != null" class="stat-sub">через {{ daysToNextCoupon }} дн.</div>
-        </div>
-      </div>
-    </div>
+      </template>
 
-    <!-- Key events -->
-    <div class="card p-4 mb-4">
-      <h3 class="section-title mb-4">Ключевые события</h3>
-      <div class="d-flex flex-column gap-3">
-        <div v-if="bond.next_coupon" class="d-flex align-items-center gap-3">
-          <div class="rounded d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: var(--nla-primary-subtle)">
-            <i class="bi bi-clock text-primary"></i>
+      <div class="cp-summary">
+        <div class="cp-cell">
+          <div class="cp-lbl">Выплачено</div>
+          <div class="cp-val">{{ fmt.priceRub(paidTotal) }}</div>
+          <div class="cp-sub">{{ paidCount }} из {{ coupons.length }} купонов</div>
+        </div>
+        <div class="cp-cell">
+          <div class="cp-lbl">Следующий купон</div>
+          <div class="cp-val cp-val--up">{{ nextCoupon ? fmt.dateShort(nextCoupon.coupon_date) : '—' }}</div>
+          <div v-if="nextCoupon" class="cp-sub">
+            через {{ daysToNextCoupon }} дн.
+            <template v-if="nextCoupon.value_rub != null"> · {{ fmt.priceRub(nextCoupon.value_rub) }}</template>
           </div>
-          <div class="flex-grow-1">
-            <div class="d-flex justify-content-between"><span class="small fw-medium">Следующий купон</span><span class="small font-monospace">{{ fmt.dateShort(bond.next_coupon) }}</span></div>
-            <div class="small text-muted">через {{ daysToNextCoupon ?? '?' }} дн.</div>
+          <div v-else class="cp-sub">все купоны выплачены</div>
+        </div>
+        <div class="cp-cell">
+          <div class="cp-lbl">PUT-оферта</div>
+          <div class="cp-val">{{ offerDate ? fmt.dateShort(offerDate) : '—' }}</div>
+          <div class="cp-sub">
+            <template v-if="offerDate && daysToOffer != null">через {{ daysToOffer }} дн.</template>
+            <template v-else>не предусмотрена</template>
           </div>
         </div>
-        <div v-if="bond.offerdate && bond.offerdate !== 'None'" class="d-flex align-items-center gap-3">
-          <div class="rounded d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: var(--nla-warning-light)">
-            <i class="bi bi-arrow-down-up text-warning"></i>
-          </div>
-          <div class="flex-grow-1">
-            <div class="d-flex justify-content-between"><span class="small fw-medium">PUT-оферта</span><span class="small font-monospace">{{ fmt.dateShort(bond.offerdate) }}</span></div>
-            <div v-if="bond.yieldtooffer != null" class="small text-muted">Доходность к оферте: {{ bond.yieldtooffer.toFixed(2) }}%</div>
-          </div>
+        <div class="cp-cell">
+          <div class="cp-lbl">К погашению</div>
+          <div class="cp-val">{{ fmt.priceRub(toMaturityTotal) }}</div>
+          <div class="cp-sub">купоны + номинал</div>
         </div>
-        <div v-if="bond.matdate" class="d-flex align-items-center gap-3">
-          <div class="rounded d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: var(--nla-danger-light)">
-            <i class="bi bi-x-circle text-danger"></i>
-          </div>
-          <div class="flex-grow-1">
-            <div class="d-flex justify-content-between"><span class="small fw-medium">Погашение</span><span class="small font-monospace">{{ fmt.dateShort(bond.matdate) }}</span></div>
-            <div class="small text-muted">через {{ bond.days_to_maturity ?? '?' }} дн. · {{ couponsRemaining }} купонов осталось</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Coupon parameters table -->
-    <div class="card overflow-hidden mb-4">
-      <div class="panel-header">
-        <i class="bi bi-tag"></i>
-        Параметры купона
-      </div>
-      <table class="data-table">
-        <tbody>
-          <tr><td class="fw-medium">Ставка купона</td><td class="text-end font-monospace">{{ fmt.percent(bond.coupon_percent) }}</td><td class="fw-medium">Номинал</td><td class="text-end font-monospace">{{ fmt.priceRub(bond.facevalue) }}</td></tr>
-          <tr><td class="fw-medium">Сумма купона</td><td class="text-end font-monospace">{{ fmt.priceRub(bond.coupon_value) }}</td><td class="fw-medium">Лот</td><td class="text-end font-monospace">{{ bond.lotsize ? bond.lotsize + ' шт.' : '—' }}</td></tr>
-          <tr><td class="fw-medium">Период купона</td><td class="text-end font-monospace">{{ periodText }}</td><td class="fw-medium">Тип</td><td class="text-end font-monospace">{{ couponTypeText }}</td></tr>
-          <tr><td class="fw-medium">НКД</td><td class="text-end font-monospace">{{ fmt.priceRub(bond.accrued_int) }}</td><td class="fw-medium">Купонная доходность</td><td class="text-end font-monospace">{{ couponYieldText }}</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Forecast by years -->
-    <div v-if="yearlyForecast.length > 0" class="card p-4 mb-4">
-      <h3 class="section-title mb-1">Прогноз купонного дохода</h3>
-      <p class="small text-muted mb-4">{{ bond.is_float ? '⚠️ Облигация с плавающей ставкой — прогноз по текущему купону' : 'На основе фиксированного купона' }}</p>
-
-      <div class="row g-3 mb-4">
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-label">Купонов осталось</div><div class="stat-value">{{ couponsRemaining }}</div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-label">Итого до погашения</div><div class="stat-value" style="font-size: 1rem">{{ fmt.priceRub(totalCouponIncome) }}</div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-label">В среднем в год</div><div class="stat-value" style="font-size: 1rem">{{ fmt.priceRub(avgYearlyIncome) }}</div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-label">Тип</div><div class="stat-value" style="font-size: 1rem">{{ bond.is_float ? 'Флоатер' : 'Фикс' }}</div><div class="stat-sub">{{ fmt.priceRub(bond.coupon_value) }} / выплата</div></div></div>
       </div>
 
-      <table class="data-table">
+      <div v-if="coupons.length === 0" class="p-5 text-center text-muted">
+        Нет данных о купонах
+      </div>
+
+      <div v-else class="table-responsive">
+        <table class="coupon-tbl">
+          <thead>
+            <tr>
+              <th class="cp-tbl__num">№</th>
+              <th>Дата выплаты</th>
+              <th>Период</th>
+              <th class="right">Сумма</th>
+              <th class="right">Дней</th>
+              <th>Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="(c, i) in displayedCoupons"
+              :key="i"
+              :class="{ paid: c.status === 'paid', next: c.status === 'next' }"
+            >
+              <td class="cp-tbl__num">{{ String(c.originalIndex + 1).padStart(2, '0') }}</td>
+              <td class="cp-tbl__date">{{ fmt.dateShort(c.coupon_date) }}</td>
+              <td class="cp-tbl__period">{{ periodCellText(c) }}</td>
+              <td class="right cp-tbl__sum">
+                {{ fmt.priceRub(c.value_rub || c.value || 0) }}
+                <span v-if="c.status === 'maturity'" class="cp-tbl__plus-nominal">+ номинал</span>
+              </td>
+              <td class="right cp-tbl__days">{{ relativeDays(c.coupon_date) }}</td>
+              <td>
+                <Pill v-if="c.status === 'paid'" tone="default"><i class="bi bi-check-lg"/>Выплачен</Pill>
+                <Pill v-else-if="c.status === 'next'" tone="primary"><i class="bi bi-arrow-right-short"/>Ближайший</Pill>
+                <Pill v-else-if="c.status === 'put'" tone="warning"><i class="bi bi-flag-fill"/>Оферта</Pill>
+                <Pill v-else-if="c.status === 'maturity'" tone="success"><i class="bi bi-flag-fill"/>Погашение</Pill>
+                <Pill v-else :dot="false" tone="default">Ожидается</Pill>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <button v-if="hasHidden" class="cp-toggle" @click="showAllCoupons = !showAllCoupons">
+          <i :class="showAllCoupons ? 'bi-chevron-up' : 'bi-chevron-down'" class="bi"></i>
+          <span v-if="!showAllCoupons">Показать все {{ couponsWithStatus.length }} купонов · скрыто {{ hiddenCount }}</span>
+          <span v-else>Свернуть · показывать только окно</span>
+        </button>
+      </div>
+    </Panel>
+
+    <!-- Block 2 — Coupon parameters -->
+    <Panel title="Параметры купона" icon="cash-stack" class="mt-3">
+      <InfoRow label="Ставка купона" :value="fmt.percent(bond.coupon_percent)" mono />
+      <InfoRow label="Сумма купона" :value="fmt.priceRub(bond.coupon_value)" mono />
+      <InfoRow label="Период" :value="periodText" />
+      <InfoRow label="Тип купона" :value="couponTypeText" />
+      <InfoRow label="НКД" :value="fmt.priceRub(bond.accrued_int)" mono />
+      <InfoRow label="Купонная доходность" :value="couponYieldText" mono tone="primary" />
+      <InfoRow
+        v-if="bond.yieldtooffer != null && offerDate"
+        label="Доходность к оферте"
+        :value="fmt.percent(bond.yieldtooffer)"
+        mono
+        tone="primary"
+      />
+      <InfoRow label="Номинал" :value="fmt.priceRub(bond.facevalue)" mono />
+      <InfoRow label="Лот" :value="bond.lotsize ? bond.lotsize + ' шт.' : '—'" mono />
+    </Panel>
+
+    <!-- Block 3 — Forecast -->
+    <Panel
+      v-if="yearlyForecast.length > 0"
+      title="Прогноз купонного дохода"
+      icon="graph-up-arrow"
+      :meta="bond.is_float ? 'плавающая ставка' : 'фикс. купон'"
+      class="mt-3"
+    >
+      <div class="cp-forecast-kpis">
+        <KPI label="Купонов осталось" :value="String(couponsRemaining)" />
+        <KPI label="Итого до погашения" :value="fmt.priceRub(totalCouponIncome)" tone="primary" />
+        <KPI label="В среднем в год" :value="fmt.priceRub(avgYearlyIncome)" />
+        <KPI label="Тип" :value="bond.is_float ? 'Флоатер' : 'Фикс'" :sub="fmt.priceRub(bond.coupon_value) + ' / выплата'" />
+      </div>
+
+      <table class="data-table cp-forecast-tbl">
         <thead><tr><th class="text-start">Год</th><th class="text-end">Выплат</th><th class="text-end">Сумма, ₽</th><th class="text-start" style="width: 33%">Доля</th></tr></thead>
         <tbody>
           <tr v-for="row in yearlyForecast" :key="row.year">
@@ -112,42 +143,7 @@
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- Coupon schedule table -->
-    <div class="card overflow-hidden">
-      <div class="panel-header justify-content-between">
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-list-ul"></i>
-          График купонных выплат
-        </div>
-        <span class="small text-muted font-monospace">{{ coupons.length }} купонов</span>
-      </div>
-
-      <div v-if="coupons.length === 0" class="p-5 text-center text-muted">
-        Нет данных о купонах
-      </div>
-
-      <div v-else class="table-responsive">
-        <table class="data-table">
-          <thead><tr><th class="text-start">Дата выплаты</th><th class="text-start">Начало периода</th><th class="text-end">Ставка, %</th><th class="text-end">Сумма, ₽</th></tr></thead>
-          <tbody>
-            <tr v-for="(c, i) in coupons" :key="i" :class="isPastCoupon(c.coupon_date) ? 'opacity-25' : ''">
-              <td>
-                <div class="d-flex align-items-center gap-2">
-                  <span v-if="isNextCoupon(c.coupon_date)" class="rounded-circle bg-primary animate-pulse-soft" style="width: 8px; height: 8px"></span>
-                  <span v-else style="width: 8px"></span>
-                  <span class="font-monospace">{{ fmt.dateShort(c.coupon_date) }}</span>
-                </div>
-              </td>
-              <td class="font-monospace">{{ fmt.dateShort(c.start_date) }}</td>
-              <td class="text-end font-monospace">{{ fmt.percent(c.value_percent) }}</td>
-              <td class="text-end font-monospace fw-medium">{{ fmt.priceRub(c.value_rub || c.value) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    </Panel>
   </div>
 </template>
 
@@ -159,22 +155,90 @@ const fmt = useFormat()
 
 const today = new Date().toISOString().slice(0, 10)
 
-function isPastCoupon(date: string): boolean { return date < today }
-function isNextCoupon(date: string): boolean {
-  if (date < today) return false
-  const future = props.coupons.filter(c => c.coupon_date >= today)
-  return future.length > 0 && future[0].coupon_date === date
+type CouponStatus = 'paid' | 'next' | 'put' | 'maturity' | 'future'
+
+interface CouponWithStatus extends Coupon {
+  status: CouponStatus
+  originalIndex: number
 }
 
-const daysToNextCoupon = computed(() => {
-  if (!props.bond.next_coupon) return null
-  const diff = new Date(props.bond.next_coupon).getTime() - Date.now()
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+function isValidDate(v?: string | null): boolean {
+  return !!v && v !== '0000-00-00' && v !== 'None' && v !== ''
+}
+
+const offerDate = computed<string | null>(() => {
+  const d = props.bond.offerdate || props.bond.putoptiondate
+  return isValidDate(d) ? d! : null
 })
 
-const futureCoupons = computed(() => props.coupons.filter(c => c.coupon_date >= today))
+const matDate = computed<string | null>(() => isValidDate(props.bond.matdate) ? props.bond.matdate : null)
+
+const couponsWithStatus = computed<CouponWithStatus[]>(() => {
+  if (props.coupons.length === 0) return []
+  const sorted = [...props.coupons].sort((a, b) => a.coupon_date.localeCompare(b.coupon_date))
+  const future = sorted.filter(c => c.coupon_date >= today)
+  const nextDate = future.length ? future[0].coupon_date : null
+  const lastDate = sorted[sorted.length - 1]?.coupon_date
+
+  return sorted.map((c, originalIndex) => {
+    let status: CouponStatus = 'future'
+    if (c.coupon_date < today) status = 'paid'
+    else if (offerDate.value && c.coupon_date === offerDate.value) status = 'put'
+    else if (matDate.value && c.coupon_date === matDate.value) status = 'maturity'
+    else if (c.coupon_date === lastDate && c.coupon_date >= today) status = 'maturity'
+    else if (c.coupon_date === nextDate) status = 'next'
+    return { ...c, status, originalIndex }
+  })
+})
+
+// Окно по умолчанию: последний выплаченный + next + 4 следующих + maturity (всегда)
+// Если всего <= 7 купонов — показываем всё.
+const showAllCoupons = ref(false)
+const COLLAPSE_THRESHOLD = 7
+const displayedCoupons = computed(() => {
+  const all = couponsWithStatus.value
+  if (showAllCoupons.value || all.length <= COLLAPSE_THRESHOLD) return all
+
+  const nextIdx = all.findIndex(c => c.status === 'next')
+  const matIdx = all.findIndex(c => c.status === 'maturity')
+
+  // Окно: 1 paid до next + next + 4 после, плюс maturity если она вне окна
+  const start = nextIdx >= 0 ? Math.max(0, nextIdx - 1) : 0
+  const end = nextIdx >= 0 ? Math.min(all.length, nextIdx + 5) : Math.min(5, all.length)
+  const window = all.slice(start, end)
+
+  // Add maturity if not already in window
+  if (matIdx >= 0 && (matIdx < start || matIdx >= end)) {
+    window.push(all[matIdx])
+  }
+  return window
+})
+
+const hasHidden = computed(() => couponsWithStatus.value.length > displayedCoupons.value.length)
+const hiddenCount = computed(() => couponsWithStatus.value.length - displayedCoupons.value.length)
+
+const paidCoupons = computed(() => couponsWithStatus.value.filter(c => c.status === 'paid'))
+const futureCoupons = computed(() => couponsWithStatus.value.filter(c => c.status !== 'paid'))
+
+const paidCount = computed(() => paidCoupons.value.length)
+const paidTotal = computed(() => paidCoupons.value.reduce((s, c) => s + (c.value_rub || c.value || 0), 0))
+
+const nextCoupon = computed(() => couponsWithStatus.value.find(c => c.status === 'next' || c.status === 'maturity') ?? null)
+
+const daysToNextCoupon = computed(() => {
+  if (!nextCoupon.value) return null
+  return daysFromToday(nextCoupon.value.coupon_date)
+})
+
+const daysToOffer = computed(() => offerDate.value ? daysFromToday(offerDate.value) : null)
+
+const toMaturityTotal = computed(() => {
+  const couponsSum = futureCoupons.value.reduce((s, c) => s + (c.value_rub || c.value || 0), 0)
+  return couponsSum + (props.bond.facevalue || 0)
+})
+
 const couponsRemaining = computed(() => futureCoupons.value.length)
-const totalCouponIncome = computed(() => futureCoupons.value.reduce((acc, c) => acc + (c.value_rub || c.value || 0), 0))
+const totalCouponIncome = computed(() => futureCoupons.value.reduce((s, c) => s + (c.value_rub || c.value || 0), 0))
 
 const avgYearlyIncome = computed(() => {
   if (!props.bond.days_to_maturity || props.bond.days_to_maturity <= 0) return 0
@@ -199,17 +263,38 @@ const yearlyForecast = computed<YearRow[]>(() => {
   }))
 })
 
+function daysFromToday(date: string): number {
+  const diff = new Date(date).getTime() - Date.now()
+  return Math.round(diff / 86400_000)
+}
+
+function relativeDays(date: string): string {
+  const d = daysFromToday(date)
+  if (d === 0) return 'сегодня'
+  return d > 0 ? `+${d}` : String(d)
+}
+
+function periodCellText(c: Coupon): string {
+  // Длина периода в днях между start_date и coupon_date
+  if (!c.start_date) return '—'
+  const ms = new Date(c.coupon_date).getTime() - new Date(c.start_date).getTime()
+  if (!Number.isFinite(ms) || ms <= 0) return '—'
+  return Math.round(ms / 86400_000) + ' дн.'
+}
+
 function formatPeriodName(days: number): string {
-  if (days >= 27 && days <= 33) return 'Ежемесячный'
-  if (days >= 85 && days <= 95) return 'Ежеквартальный'
-  if (days >= 175 && days <= 190) return 'Полугодовой'
-  if (days >= 355 && days <= 370) return 'Годовой'
-  return days + ' дней'
+  if (days >= 27 && days <= 33) return 'ежемесячный'
+  if (days >= 85 && days <= 95) return 'ежеквартальный'
+  if (days >= 175 && days <= 190) return 'полугодовой'
+  if (days >= 355 && days <= 370) return 'годовой'
+  return ''
 }
 
 const periodText = computed(() => {
   const p = props.bond.coupon_period
-  return p ? `${p} дн. (${formatPeriodName(p)})` : '—'
+  if (!p) return '—'
+  const name = formatPeriodName(p)
+  return name ? `${p} дн. · ${name}` : `${p} дн.`
 })
 
 const couponTypeText = computed(() => {
@@ -224,3 +309,180 @@ const couponYieldText = computed(() => {
   return ((props.bond.coupon_value * cpy / props.bond.price_rub) * 100).toFixed(2) + '%'
 })
 </script>
+
+<style scoped>
+/* Header */
+.cp-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.cp-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 13px/1.4 var(--nla-font);
+  color: var(--nla-text);
+}
+.cp-title i { color: var(--nla-primary); font-size: 14px; }
+.cp-meta {
+  margin-left: auto;
+  font: 500 11px/1 var(--nla-font);
+  color: var(--nla-text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-feature-settings: 'tnum';
+}
+
+/* Summary 4-cell */
+.cp-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--nla-border);
+}
+.cp-cell {
+  padding: 14px 18px;
+  border-right: 1px solid var(--nla-border-light);
+}
+.cp-cell:last-child { border-right: 0; }
+.cp-lbl {
+  font: 600 10.5px/1.2 var(--nla-font);
+  color: var(--nla-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+}
+.cp-val {
+  font: 600 18px/1.1 var(--nla-font-mono);
+  font-feature-settings: 'tnum', 'zero';
+  color: var(--nla-text);
+}
+.cp-val--up { color: var(--nla-success); }
+.cp-sub {
+  font: 500 11px/1.3 var(--nla-font);
+  color: var(--nla-text-muted);
+  margin-top: 4px;
+  font-feature-settings: 'tnum';
+}
+
+@media (max-width: 768px) {
+  .cp-summary { grid-template-columns: repeat(2, 1fr); }
+  .cp-cell:nth-child(2) { border-right: 0; }
+  .cp-cell:nth-child(n+3) { border-top: 1px solid var(--nla-border-light); }
+}
+
+/* Coupons table */
+.coupon-tbl {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.coupon-tbl th {
+  background: var(--nla-bg-elevated);
+  text-align: left;
+  padding: 9px 14px;
+  font: 600 10.5px/1 var(--nla-font);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nla-text-muted);
+  border-bottom: 1px solid var(--nla-border);
+  white-space: nowrap;
+}
+.coupon-tbl th.right { text-align: right; }
+.coupon-tbl td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--nla-border-light);
+  color: var(--nla-text-secondary);
+  vertical-align: middle;
+}
+.coupon-tbl td.right {
+  text-align: right;
+  font-family: var(--nla-font-mono);
+  font-feature-settings: 'tnum';
+  color: var(--nla-text);
+}
+
+.cp-tbl__num,
+.cp-tbl__days,
+.cp-tbl__date,
+.cp-tbl__sum {
+  font-family: var(--nla-font-mono);
+  font-feature-settings: 'tnum';
+}
+.cp-tbl__num { color: var(--nla-text-muted); width: 50px; text-align: right; }
+.cp-tbl__days { color: var(--nla-text-muted); width: 70px; }
+.cp-tbl__period { color: var(--nla-text-muted); width: 90px; }
+.cp-tbl__plus-nominal {
+  font-family: var(--nla-font);
+  font-weight: 400;
+  color: var(--nla-text-muted);
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+.cp-toggle {
+  appearance: none;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--nla-border-light);
+  background: var(--nla-bg-elevated);
+  padding: 11px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: 500 12.5px/1 var(--nla-font);
+  color: var(--nla-text-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.cp-toggle:hover {
+  background: var(--nla-bg-subtle);
+  color: var(--nla-primary);
+}
+.cp-toggle .bi { font-size: 13px; }
+
+/* Row tones */
+.coupon-tbl tr.paid td:not(:last-child) { color: var(--nla-text-muted); }
+.coupon-tbl tr.paid td.right { color: var(--nla-text-muted); }
+.coupon-tbl tr.next {
+  background: var(--nla-primary-light);
+}
+.coupon-tbl tr.next td:not(:last-child) {
+  color: var(--nla-primary-ink);
+  font-weight: 600;
+}
+.coupon-tbl tr.next td.right { color: var(--nla-primary-ink); }
+
+[data-theme="dark"] .coupon-tbl tr.next td:not(:last-child),
+[data-theme="dark"] .coupon-tbl tr.next td.right {
+  color: var(--nla-primary);
+}
+
+/* Pill icon spacing */
+:deep(.pill .bi) {
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Forecast inside Panel */
+.cp-forecast-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--nla-border-light);
+}
+@media (max-width: 768px) {
+  .cp-forecast-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+.cp-forecast-tbl { margin-bottom: 0; }
+
+@media (max-width: 480px) {
+  .coupon-tbl th, .coupon-tbl td { padding: 8px 8px; font-size: 12px; }
+  .cp-tbl__period { display: none; }
+  .cp-tbl__num { width: 32px; }
+}
+</style>

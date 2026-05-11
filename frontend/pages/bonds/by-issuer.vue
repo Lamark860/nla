@@ -1,6 +1,15 @@
 <template>
   <div>
-    <h1 class="h4 fw-bold mb-4">Облигации по эмитентам</h1>
+    <PageHead title="Облигации по эмитентам">
+      <template #sub>
+        Сгруппировано по эмитентам ·
+        <b>{{ totalIssuers }}</b> компаний ·
+        <b>{{ totalBonds }}</b> {{ pluralBond(totalBonds) }}
+      </template>
+      <template #actions>
+        <ViewToggle :options="viewOptions" />
+      </template>
+    </PageHead>
 
     <!-- Loading -->
     <div v-if="pending" class="card p-5 text-center">
@@ -15,30 +24,25 @@
     </div>
 
     <template v-else-if="groupedData">
-      <IssuerFilters
-        :filters="filters"
-        :stats="{ issuers: filteredIssuers.length, bonds: filteredBondCount, total: groupedData.total_issuers ?? 0 }"
-        :show-period="true"
-        :show-category="true"
-        @update="filters = $event"
-        @reset="resetFilters"
-      />
+      <IssuerFilters class="mb-4" :stats="filterStats" @change="onFiltersChange" />
       <IssuerCardGrid :issuers="filteredIssuers" :ratings="ratingsMap" :ai-stats="aiStatsMap" />
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Bond, IssuerGroup, IssuerRatingResponse, AnalysisStats } from '~/composables/useApi'
-import type { IssuerFilterValues } from '~/components/IssuerFilters.vue'
+import type { IssuerGroup, IssuerRatingResponse, AnalysisStats } from '~/composables/useApi'
+import {
+  emptyIssuerFilterState,
+  matchesBond,
+  matchesIssuerRating,
+  matchesIssuerAi,
+  type IssuerFilterState,
+} from '~/composables/useIssuerFilters'
 
 const api = useApi()
 
-const filters = ref<IssuerFilterValues>({
-  search: '', couponType: '', rating: '', period: '', category: '',
-  yieldMin: null, yieldMax: null, couponMin: null, couponMax: null,
-  maturityMin: null, maturityMax: null, priceMax: null,
-})
+const filters = ref<IssuerFilterState>(emptyIssuerFilterState())
 
 const { data: groupedData, pending, error, refresh } = useAsyncData('bonds-grouped', () => api.getBondsGrouped())
 
@@ -52,67 +56,49 @@ watch(aiStatsData, (v) => { if (v) aiStatsMap.value = v }, { immediate: true })
 
 const filteredIssuers = computed(() => {
   if (!groupedData.value) return []
+  const f = filters.value
   return groupedData.value.groups
     .map(group => {
-      const bonds = group.bonds.filter(matchesBond)
+      const bonds = group.bonds.filter(b => matchesBond(b, f))
       if (bonds.length === 0) return null
       return { ...group, bonds, bond_count: bonds.length }
     })
     .filter((g): g is IssuerGroup => g !== null)
-    .filter(matchesIssuerRating)
+    .filter(group => {
+      const ratings = ratingsMap.value[String(group.emitter_id)]?.ratings
+      if (!matchesIssuerRating(ratings, f.rating, f.hasRating)) return false
+      if (!matchesIssuerAi(group.bonds, aiStatsMap.value, f.aiBucket)) return false
+      return true
+    })
 })
 
+const totalIssuers = computed(() => groupedData.value?.total_issuers ?? groupedData.value?.groups.length ?? 0)
+const totalBonds = computed(() =>
+  groupedData.value?.groups.reduce((acc, g) => acc + g.bond_count, 0) ?? 0
+)
 const filteredBondCount = computed(() => filteredIssuers.value.reduce((acc, g) => acc + g.bond_count, 0))
 
-function matchesBond(bond: Bond): boolean {
-  const f = filters.value
-  if (f.search) {
-    const q = f.search.toLowerCase()
-    if (!bond.shortname.toLowerCase().includes(q) && !bond.secname.toLowerCase().includes(q) && !bond.isin.toLowerCase().includes(q) && !bond.secid.toLowerCase().includes(q)) return false
-  }
-  if (f.category && bond.bond_category !== f.category) return false
-  if (f.couponType === 'float' && !bond.is_float) return false
-  if (f.couponType === 'indexed' && !bond.is_indexed) return false
-  if (f.couponType === 'fixed' && (bond.is_float || bond.is_indexed)) return false
-  if (f.period) {
-    const p = bond.coupon_period
-    if (f.period === 'monthly' && (p < 27 || p > 33)) return false
-    if (f.period === 'quarterly' && (p < 85 || p > 95)) return false
-    if (f.period === 'semiannual' && (p < 175 || p > 190)) return false
-    if (f.period === 'annual' && (p < 355 || p > 370)) return false
-  }
-  if (f.yieldMin != null && (bond.yield == null || bond.yield < f.yieldMin)) return false
-  if (f.yieldMax != null && (bond.yield == null || bond.yield > f.yieldMax)) return false
-  if (f.couponMin != null && (bond.coupon_percent == null || bond.coupon_percent < f.couponMin)) return false
-  if (f.couponMax != null && (bond.coupon_percent == null || bond.coupon_percent > f.couponMax)) return false
-  if (f.maturityMin != null && (bond.days_to_maturity == null || bond.days_to_maturity < f.maturityMin)) return false
-  if (f.maturityMax != null && (bond.days_to_maturity == null || bond.days_to_maturity > f.maturityMax)) return false
-  if (f.priceMax != null && (bond.last == null || bond.last > f.priceMax)) return false
-  return true
+const filterStats = computed(() => ({
+  issuers: totalIssuers.value,
+  bonds: totalBonds.value,
+  shown: filteredBondCount.value,
+}))
+
+const viewOptions = [
+  { path: '/bonds/by-issuer', label: 'Эмитенты',        icon: 'collection' },
+  { path: '/bonds/monthly',   label: 'Месячные купоны', icon: 'calendar3' },
+]
+
+function onFiltersChange(value: IssuerFilterState) {
+  filters.value = value
 }
 
-function matchesIssuerRating(group: IssuerGroup): boolean {
-  const r = filters.value.rating
-  if (!r) return true
-  const rating = getIssuerRating(group.emitter_id)
-  const score = rating?.score ?? -1
-  switch (r) {
-    case 'aaa': return score >= 9
-    case 'aa': return score >= 7 && score <= 8
-    case 'a': return score >= 5 && score <= 6
-    case 'bbb': return score >= 1 && score <= 4
-    case 'none': return score < 0
-    default: return true
-  }
-}
-
-function getIssuerRating(emitterId: number): IssuerRatingResponse | null {
-  const key = String(emitterId)
-  return ratingsMap.value[key] ?? null
-}
-
-function resetFilters() {
-  filters.value = { search: '', couponType: '', rating: '', period: '', category: '', yieldMin: null, yieldMax: null, couponMin: null, couponMax: null, maturityMin: null, maturityMax: null, priceMax: null }
+function pluralBond(n: number): string {
+  const m10 = n % 10, m100 = n % 100
+  if (m100 >= 11 && m100 <= 19) return 'выпусков'
+  if (m10 === 1) return 'выпуск'
+  if (m10 >= 2 && m10 <= 4) return 'выпуска'
+  return 'выпусков'
 }
 
 useHead({ title: 'По эмитентам — NLA' })

@@ -219,23 +219,5 @@ function fmtBps(v: number | null | undefined): string {
   return v.toFixed(0) + ' б.п.'
 }
 
-// YieldBar inline component
-const YieldBar = defineComponent({
-  props: { label: String, value: { type: Number, default: null }, max: { type: Number, default: 20 } },
-  setup(p) {
-    const pct = computed(() => p.value == null || p.max <= 0 ? 0 : Math.max(0, Math.min(100, (p.value / p.max) * 100)))
-    const cls = computed(() => {
-      if (p.value == null) return 'yield-bar__fill--primary'
-      if (p.value >= 20) return 'yield-bar__fill--danger'
-      if (p.value >= 15) return 'yield-bar__fill--warning'
-      if (p.value >= 10) return 'yield-bar__fill--success'
-      return 'yield-bar__fill--primary'
-    })
-    return { pct, cls }
-  },
-  template: `<div>
-    <div class="d-flex justify-content-between mb-1"><span class="small text-muted fw-medium">{{ label }}</span><span class="small fw-semibold font-monospace">{{ value != null ? value.toFixed(2) + '%' : '—' }}</span></div>
-    <div class="yield-bar"><div :class="cls" class="yield-bar__fill" :style="{ width: pct + '%' }"></div></div>
-  </div>`,
-})
+// YieldBar lives in its own SFC (components/YieldBar.vue) and is auto-imported.
 </script>

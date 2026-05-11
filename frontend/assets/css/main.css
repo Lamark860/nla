@@ -2,108 +2,144 @@
    NLA — Bond Analyzer Design System (based on ASH)
    ========================================================================== */
 
-/* --- CSS Custom Properties (Light Theme) --- */
+/* --- CSS Custom Properties (Light Theme · violet redesign) --- */
 :root {
+    /* ─── Fonts ─────────────────────────────────────────── */
     --nla-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --nla-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-    /* Primary palette — indigo */
-    --nla-primary: #6366f1;
-    --nla-primary-hover: #4f46e5;
-    --nla-primary-light: #e0e7ff;
-    --nla-primary-subtle: rgba(99, 102, 241, 0.08);
+    /* ─── Primary palette · violet ──────────────────────── */
+    --nla-primary:         #5b3aa8;
+    --nla-primary-hover:   #4a2e8c;
+    --nla-primary-light:   #ede8f8;
+    --nla-primary-subtle:  rgba(91, 58, 168, 0.08);
+    --nla-primary-ink:     #3b2480;
 
-    /* Semantic colors */
-    --nla-success: #10b981;
-    --nla-success-light: #d1fae5;
-    --nla-danger: #ef4444;
-    --nla-danger-light: #fee2e2;
-    --nla-warning: #f59e0b;
-    --nla-warning-light: #fef3c7;
-    --nla-info: #06b6d4;
+    /* ─── Semantic colors ───────────────────────────────── */
+    --nla-success:         #0d7a4e;
+    --nla-success-light:   #d4ecdf;
+    --nla-danger:          #c2410c;
+    --nla-danger-light:    #fce4d4;
+    --nla-warning:         #b45309;
+    --nla-warning-light:   #fef3c7;
+    --nla-info:            #0369a1;
 
-    /* Surfaces */
-    --nla-bg: #f8f9fb;
-    --nla-bg-card: #ffffff;
-    --nla-bg-hover: #f8fafc;
-    --nla-bg-input: #ffffff;
-    --nla-bg-code: #f1f5f9;
+    /* ─── Surfaces ──────────────────────────────────────── */
+    --nla-bg:              #faf8f5;
+    --nla-bg-card:         #ffffff;
+    --nla-bg-hover:        #f3efea;
+    --nla-bg-input:        #ffffff;
+    --nla-bg-code:         #f3efea;
+    --nla-bg-elevated:     #fbf9f6;
+    --nla-bg-subtle:       #f3efea;
 
-    /* Text */
-    --nla-text: #0f172a;
-    --nla-text-secondary: #475569;
-    --nla-text-muted: #64748b;
-    --nla-text-inverse: #ffffff;
+    /* ─── Text ──────────────────────────────────────────── */
+    --nla-text:            #1a1814;
+    --nla-text-secondary:  #45413a;
+    --nla-text-muted:      #8a8478;
+    --nla-text-subtle:     #b0a99c;
+    --nla-text-inverse:    #ffffff;
 
-    /* Borders & Shadows */
-    --nla-border: #e2e8f0;
-    --nla-border-light: #f1f5f9;
-    --nla-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --nla-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-    --nla-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-    --nla-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+    /* ─── Borders ───────────────────────────────────────── */
+    --nla-border:          #ece7df;
+    --nla-border-strong:   #d8d1c5;
+    --nla-border-light:    #f3efea;
 
-    /* Radius */
-    --nla-radius-sm: 6px;
-    --nla-radius: 10px;
-    --nla-radius-lg: 14px;
-    --nla-radius-xl: 20px;
+    /* ─── Shadows ───────────────────────────────────────── */
+    --nla-shadow-sm:  0 1px 2px rgba(40, 30, 15, .04), 0 1px 1px rgba(40, 30, 15, .03);
+    --nla-shadow:     0 1px 3px rgba(40, 30, 15, .06), 0 4px 14px rgba(40, 30, 15, .06);
+    --nla-shadow-md:  0 4px 6px -1px rgba(40, 30, 15, .08), 0 2px 4px -2px rgba(40, 30, 15, .05);
+    --nla-shadow-lg:  0 10px 15px -3px rgba(40, 30, 15, .08), 0 4px 6px -4px rgba(40, 30, 15, .04);
+    --nla-shadow-xl:  0 20px 35px -5px rgba(40, 30, 15, .12), 0 10px 15px -5px rgba(40, 30, 15, .04);
 
-    /* Navbar */
-    --nla-navbar-bg: rgba(255, 255, 255, 0.85);
-    --nla-navbar-text: #334155;
-    --nla-navbar-border: rgba(0, 0, 0, 0.06);
+    /* ─── Radius ────────────────────────────────────────── */
+    --nla-radius-sm:   6px;
+    --nla-radius:      10px;
+    --nla-radius-lg:   14px;
+    --nla-radius-xl:   20px;
+    --nla-radius-2xl:  28px;
+    --nla-radius-pill: 999px;
 
-    /* Chart colors */
-    --nla-chart-1: #6366f1;
-    --nla-chart-2: #10b981;
-    --nla-chart-3: #f59e0b;
-    --nla-chart-4: #ef4444;
-    --nla-chart-5: #06b6d4;
+    /* ─── Spacing scale ─────────────────────────────────── */
+    --nla-space-1:  4px;
+    --nla-space-2:  8px;
+    --nla-space-3:  12px;
+    --nla-space-4:  16px;
+    --nla-space-5:  20px;
+    --nla-space-6:  24px;
+    --nla-space-8:  32px;
+    --nla-space-10: 40px;
+
+    /* ─── Navbar ────────────────────────────────────────── */
+    --nla-navbar-bg:     rgba(250, 248, 245, 0.85);
+    --nla-navbar-text:   #45413a;
+    --nla-navbar-border: rgba(40, 30, 15, 0.06);
+
+    /* ─── Chart colors (violet palette, semantic order preserved) ─── */
+    --nla-chart-1: #5b3aa8;
+    --nla-chart-2: #0d7a4e;
+    --nla-chart-3: #b45309;
+    --nla-chart-4: #c2410c;
+    --nla-chart-5: #0e7a78;
     --nla-chart-6: #8b5cf6;
+
+    /* Bootstrap monospace alias → JetBrains Mono.
+       Bootstrap utility .font-monospace reads var(--bs-font-monospace);
+       overriding the variable here propagates JetBrains Mono everywhere
+       that utility is used (BondTable, etc.) without touching templates. */
+    --bs-font-monospace: var(--nla-font-mono);
 }
 
-/* --- Dark Theme --- */
+/* --- Dark Theme · violet redesign --- */
 [data-theme="dark"] {
-    --nla-primary: #818cf8;
-    --nla-primary-hover: #a5b4fc;
-    --nla-primary-light: rgba(129, 140, 248, 0.15);
-    --nla-primary-subtle: rgba(129, 140, 248, 0.08);
+    --nla-primary:         #b89cff;
+    --nla-primary-hover:   #d0baff;
+    --nla-primary-light:   #2a1e54;
+    --nla-primary-subtle:  rgba(184, 156, 255, 0.10);
+    --nla-primary-ink:     #b89cff;
 
-    --nla-success: #34d399;
-    --nla-success-light: rgba(52, 211, 153, 0.15);
-    --nla-danger: #f87171;
-    --nla-danger-light: rgba(248, 113, 113, 0.15);
-    --nla-warning: #fbbf24;
-    --nla-warning-light: rgba(251, 191, 36, 0.15);
-    --nla-info: #22d3ee;
+    --nla-success:         #38c172;
+    --nla-success-light:   rgba(56, 193, 114, 0.16);
+    --nla-danger:          #ef6c4e;
+    --nla-danger-light:    rgba(239, 108, 78, 0.16);
+    --nla-warning:         #e8b75d;
+    --nla-warning-light:   rgba(232, 183, 93, 0.16);
+    --nla-info:            #67b8e0;
 
-    --nla-bg: #0f172a;
-    --nla-bg-card: #253345;
-    --nla-bg-hover: #334155;
-    --nla-bg-input: #253345;
-    --nla-bg-code: #334155;
+    --nla-bg:              #0c0e0d;
+    --nla-bg-card:         #161917;
+    --nla-bg-hover:        #1d211e;
+    --nla-bg-input:        #161917;
+    --nla-bg-code:         #131614;
+    --nla-bg-elevated:     #1d211e;
+    --nla-bg-subtle:       #131614;
 
-    --nla-text: #f1f5f9;
-    --nla-text-secondary: #cbd5e1;
-    --nla-text-muted: #8b9bb5;    --nla-text-inverse: #0f172a;
+    --nla-text:            #e7ece7;
+    --nla-text-secondary:  #b8c0b8;
+    --nla-text-muted:      #919a91;
+    --nla-text-subtle:     #6f786f;
+    --nla-text-inverse:    #0c0e0d;
 
-    --nla-border: #334155;
-    --nla-border-light: #1e293b;
-    --nla-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --nla-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-    --nla-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-    --nla-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+    --nla-border:          #262a27;
+    --nla-border-strong:   #353a36;
+    --nla-border-light:    #1d211e;
 
-    --nla-navbar-bg: rgba(15, 23, 42, 0.9);
-    --nla-navbar-text: #e2e8f0;
+    --nla-shadow-sm:  0 1px 2px rgba(0, 0, 0, .4);
+    --nla-shadow:     0 1px 3px rgba(0, 0, 0, .5), 0 4px 18px rgba(0, 0, 0, .5);
+    --nla-shadow-md:  0 4px 6px -1px rgba(0, 0, 0, .5), 0 2px 4px -2px rgba(0, 0, 0, .4);
+    --nla-shadow-lg:  0 10px 15px -3px rgba(0, 0, 0, .55), 0 4px 6px -4px rgba(0, 0, 0, .4);
+    --nla-shadow-xl:  0 20px 35px -5px rgba(0, 0, 0, .65), 0 10px 15px -5px rgba(0, 0, 0, .4);
+
+    --nla-navbar-bg:     rgba(12, 14, 13, 0.9);
+    --nla-navbar-text:   #b8c0b8;
     --nla-navbar-border: rgba(255, 255, 255, 0.06);
 
-    --nla-chart-1: #818cf8;
-    --nla-chart-2: #34d399;
-    --nla-chart-3: #fbbf24;
-    --nla-chart-4: #f87171;
-    --nla-chart-5: #22d3ee;
-    --nla-chart-6: #a78bfa;
+    --nla-chart-1: #b89cff;
+    --nla-chart-2: #38c172;
+    --nla-chart-3: #e8b75d;
+    --nla-chart-4: #ef6c4e;
+    --nla-chart-5: #4dd0bd;
+    --nla-chart-6: #c4a8ff;
 }
 
 /* ==========================================================================
@@ -138,79 +174,11 @@ a:hover {
 
 /* ==========================================================================
    Layout
+   ==========================================================================
+   Top-navbar и Bootstrap fixed-top были заменены на shell-сайдбар (Шаг 20).
+   Стили лейаута живут в layouts/default.vue scoped. main > .container
+   больше не нужен — пустой proxy остался для совместимости со старым кодом.
    ========================================================================== */
-main > .container {
-    padding: 80px 15px 30px;
-}
-
-/* ==========================================================================
-   Navbar (sticky + blur)
-   ========================================================================== */
-#header .navbar {
-    background: var(--nla-navbar-bg) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--nla-navbar-border) !important;
-    box-shadow: var(--nla-shadow-sm);
-    transition: background 0.2s ease;
-}
-
-#header .navbar .navbar-brand {
-    font-weight: 700;
-    font-size: 1.15rem;
-    color: var(--nla-primary) !important;
-    letter-spacing: -0.02em;
-}
-
-#header .navbar .nav-link {
-    color: var(--nla-navbar-text) !important;
-    font-weight: 500;
-    font-size: 0.9rem;
-    padding: 0.5rem 0.85rem !important;
-    border-radius: var(--nla-radius-sm);
-    transition: all 0.15s ease;
-}
-
-#header .navbar .nav-link:hover {
-    color: var(--nla-primary) !important;
-    background: var(--nla-primary-subtle);
-}
-
-#header .navbar .nav-link.active,
-#header .navbar .nav-item.active .nav-link {
-    color: var(--nla-primary) !important;
-    background: var(--nla-primary-subtle);
-}
-
-/* Theme toggle button */
-.theme-toggle {
-    background: none;
-    border: 1px solid var(--nla-border);
-    border-radius: var(--nla-radius-sm);
-    padding: 0.35rem 0.6rem;
-    font-size: 1rem;
-    cursor: pointer;
-    color: var(--nla-text-secondary);
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-}
-.theme-toggle:hover {
-    background: var(--nla-primary-subtle);
-    color: var(--nla-primary);
-    border-color: var(--nla-primary);
-}
-
-/* ==========================================================================
-   Footer
-   ========================================================================== */
-#footer {
-    background: var(--nla-bg-card) !important;
-    border-top: 1px solid var(--nla-border) !important;
-    color: var(--nla-text-muted) !important;
-    font-size: 0.85rem;
-    padding: 1.5rem 0 !important;
-}
 
 /* ==========================================================================
    Cards
@@ -525,6 +493,7 @@ main > .container {
 .yield-bar__fill--success { background: var(--nla-success); }
 .yield-bar__fill--warning { background: var(--nla-warning); }
 .yield-bar__fill--danger { background: var(--nla-danger); }
+.yield-bar__fill--muted { background: var(--nla-text-muted); }
 
 /* --- Animate --- */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }

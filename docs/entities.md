@@ -1,388 +1,158 @@
-## Сущности и хранилище данных
+# Сущности и хранилище данных
 
-### Обзор хранилищ
+Источник истины по схеме — `internal/database/migrations/*.sql`. Этот файл — обзорная карта.
+
+После Фазы 1 (см. `roadmap.md`) единственное persistent-хранилище — **PostgreSQL 16**. MOEX-кэш — in-process (`memoryCache` в `service/bond.go`). MongoDB и Redis удалены полностью.
+
+## Обзор таблиц
 
 ```
-PostgreSQL (реляционные данные)     MongoDB (документы и кэши)         Redis (ephemeral)
-┌────────────────────────────┐     ┌──────────────────────────────┐   ┌────────────────────┐
-│ users                      │     │ bond_analyses                │   │ bonds:list (24h)   │
-│ favorites                  │     │ bond_issuers                 │   │ bonds:{secid} (24h)│
-│                            │     │ dohod_details (TTL 30d)      │   │ jobs:queue          │
-│                            │     │ issuer_ratings               │   │ sessions (JWT)      │
-│                            │     │ queue_jobs                   │   │                    │
-│                            │     │ chat_sessions                │   │                    │
-│                            │     │ chat_messages                │   │                    │
-└────────────────────────────┘     └──────────────────────────────┘   └────────────────────┘
+PostgreSQL — единое хранилище
+┌──────────────────────────────────────────────────────────────────┐
+│ Auth/User-owned:    users, favorites, portfolio_positions        │
+│ Reference (MOEX):   bond_issuers, issuer_ratings                 │
+│ External cache:     dohod_details (TTL 30d, cleanup nightly)     │
+│ AI / scoring:       bond_analyses, scoring_profiles, bond_scores,│
+│                     bond_score_explanations                       │
+│ Async jobs:         queue_jobs                                    │
+│ Chat:               chat_sessions, chat_messages (CASCADE)        │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-### PostgreSQL
-
-#### users
+## users
 
 | Поле | Тип | Описание |
-|------|-----|----------|
+|---|---|---|
 | id | BIGSERIAL PK | Автоинкремент |
 | email | VARCHAR(255) UNIQUE | Email (логин) |
 | password | VARCHAR(255) | bcrypt hash |
 | name | VARCHAR(255) | Имя пользователя |
-| created_at | TIMESTAMPTZ | Дата создания |
-| updated_at | TIMESTAMPTZ | Дата обновления |
+| created_at / updated_at | TIMESTAMPTZ | Даты |
 
-**Индексы:** email (unique)
+## favorites
 
----
+`(user_id, secid) UNIQUE`. CASCADE delete по user_id. Используется `/api/v1/favorites/*`.
 
-### MongoDB
+## bond_issuers
 
-#### bond_analyses — AI-анализы облигаций
+Маппинг `secid → emitter_id + emitter_name`. PK по `secid`. Поля `inn` и `external_ids JSONB` зарезервированы под Фазу 5 (Tinkoff API).
 
-```json
-{
-  "_id": ObjectId,
-  "secid": "RU000A105KV7",
-  "response": "Полный текст ответа AI...",
-  "rating": 72,
-  "json_data": { /* исходные данные облигации */ },
-  "custom_json": { /* пользовательские данные */ },
-  "timestamp": ISODate,
-  "user_id": null,
-  "saved_at": ISODate,
-  "tags": []
-}
-```
+| Поле | Тип | Использование |
+|---|---|---|
+| secid | VARCHAR(64) PK | MOEX security ID |
+| emitter_id | BIGINT | Из MOEX disclosure API |
+| emitter_name | TEXT | Подтягивается из dohod.ru при первом запросе |
+| inn | TEXT (NULL) | Phase 5 — Tinkoff `Asset.Brand.companyInn` |
+| external_ids | JSONB (NULL) | Phase 5 — `{"tinkoff": "BBG..."}` для маппинга на внешние ID |
+| is_hidden, needs_sync | BOOLEAN | Флаги UI |
 
-**Индексы:** secid, timestamp  
-**Время жизни:** постоянное хранение  
-**Бизнес-правила:**
-- rating: 0-100, парсится из текста ответа AI
-- Один SECID может иметь много анализов (история)
+## issuer_ratings
 
----
+Композитный PK `(emitter_id, agency)`. Два скора: `score` (legacy 1-10) и `score_ord` (canonical 1-22). Для сортировок и cross-agency сравнений — всегда `score_ord`. Подробности нормализации — `internal/service/rating_score.go::NormalizeRating`, TS-зеркало в `frontend/composables/useRating.ts`.
 
-#### bond_issuers — маппинг облигация ↔ эмитент
+## dohod_details
 
-```json
-{
-  "_id": ObjectId,
-  "secid": "RU000A105KV7",
-  "emitter_id": 7720,
-  "emitter_name": "ПАО Сбербанк",
-  "is_hidden": false,
-  "needs_sync": false,
-  "created_at": ISODate,
-  "updated_at": ISODate
-}
-```
+`isin TEXT PK` + индекс по `secid`. Полные ~80 полей парсера dohod.ru хранятся в `data JSONB`. TTL — 30 дней (поле `updated_at`); чистка ночным DELETE'ом (см. `roadmap.md` Фаза 1.6).
 
-**Индексы:** secid (unique), emitter_id  
-**Источник:** MOEX ISS disclosure API  
-**Обновление:** через SyncIssuerJob (фоновая задача)
+## bond_analyses
 
----
+UUID PK (`gen_random_uuid()`). История AI-анализов по бумаге. Содержит сам текст ответа LLM, парсенный балл 0..100 и опциональный `user_id` (FK → users, ON DELETE SET NULL). Гибкие поля `json_data` и `custom_json` — JSONB.
 
-#### bond_details — парсинг облигации с dohod.ru
+Парсинг рейтинга (`service/analysis.go::parseFloatRating`) уважает порядок:
 
-```json
-{
-  "_id": ObjectId,
-  "secid": "RU000A105KV7",
-  "data": {
-    "credit_rating": "A+",
-    "sector": "Финансы",
-    "risk_assessment": "...",
-    /* произвольная структура от парсера */
-  },
-  "created_at": ISODate,
-  "updated_at": ISODate
-}
-```
+1. `[RATING:72.5]` — машиночитаемый тег (приоритет)
+2. «Итоговая оценка: **72/100**» — markdown bold + контекст
+3. «Итоговая оценка: 72 баллов» — словоформа
+4. Просто `**72/100**` standalone
+5. Последний `XX/100` в тексте — fallback
 
-**Индексы:** secid (unique)  
-**TTL:** 30 дней (auto-delete)  
-**Источник:** Python dohod-parser.py
+## queue_jobs
+
+UUID PK. Атомарный claim через `UPDATE ... FOR UPDATE SKIP LOCKED RETURNING` в `QueueRepo.FetchPending`. Дедупликация — partial index по `(type, secid)` для статусов `pending|running`. На старте worker'а — `ResetStaleJobs(3 min)`.
+
+Типы задач: `ai_analysis`, `parse_bond`, `parse_emitter`, `sync_issuer`, `parse_dohod`. Поля `data` и `result` — JSONB.
+
+## chat_sessions / chat_messages
+
+`session_id VARCHAR(64)` как естественный ключ. Сообщения — `BIGSERIAL` PK + FK на сессию с `ON DELETE CASCADE`. Индекс `(session_id, created_at)` для timeline.
+
+Типы агентов (`agent_type`): `analyst`, `report`, `support` — промпты в `data/prompts/<type>.txt`.
+
+## scoring_profiles (Фаза 2)
+
+`code` как PK. Три preset-профиля (`low`, `mid`, `high`) — `is_preset = TRUE`, `user_id` NULL. Пользовательские профили (Pro Plus в Фазе 7) — `is_preset = FALSE`, `user_id` указывает владельца, `code` — synthetic.
+
+`weights JSONB` — словарь `{factor_name: weight_float}`. Список факторов и стартовые значения — в `roadmap.md` Фаза 2.
+
+## bond_scores (Фаза 2)
+
+Хранит **историю** баллов: `(secid, profile_code, score, breakdown, computed_at)`. Latest-balance по `(secid, profile_code)` достаётся `ORDER BY computed_at DESC LIMIT 1`. `breakdown JSONB` — массив объектов `{factor, raw_value, normalised, contribution}` для каждого из 12 факторов.
+
+## bond_score_explanations (Фаза 2)
+
+LLM-объяснение конкретного снимка скоринга. FK на `bond_scores(id)` с CASCADE. Дорогая операция (вызов OpenAI), вызывается только по явному запросу.
+
+## portfolio_positions (Фаза 4)
+
+`user_id` FK с CASCADE. Поля: `secid`, `qty`, `price_in`, `date_in`, `note`. На основе этой таблицы — расчёт cash-flow на год, средневзвешенной YTM, дюрации портфеля и профильного балла портфеля.
 
 ---
 
-#### emitter_details — парсинг эмитента
+## Не хранится локально
 
-```json
-{
-  "_id": ObjectId,
-  "emitter_id": 7720,
-  "data": {
-    "full_name": "ПАО Сбербанк",
-    "inn": "7707083893",
-    "sector": "Банки",
-    "ratings": { "expert_ra": "ruAAA", "acra": "AAA(RU)" },
-    /* произвольная структура */
-  },
-  "created_at": ISODate,
-  "updated_at": ISODate
-}
-```
+MOEX ISS API кэшируется **только в памяти процесса** (`memoryCache` в `service/bond.go`). Два ключа: `bonds:list` и `bonds:{secid}`. TTL 24 часа. При рестарте API — пустой кэш, прогрев одним запросом.
 
-**Индексы:** emitter_id (unique)  
-**TTL:** 30 дней  
-**Источник:** Python emit-parser.py
+Это допустимо для one-instance деплоя. При горизонтальном масштабировании потребуется внешний кэш — на этом этапе можно вернуть Redis или использовать `pg_advisory_lock` + таблицу-кэш.
 
 ---
 
-#### queue_jobs — трекинг фоновых задач
+## Бизнес-правила
 
-```json
-{
-  "_id": ObjectId,
-  "job_id": "uuid-v4",
-  "type": "ai_analysis",
-  "reference_id": "RU000A105KV7",
-  "status": "done",
-  "data": {},
-  "result": { "rating": 72, "analysis_id": "..." },
-  "error": null,
-  "attempts": 1,
-  "max_attempts": 3,
-  "created_at": ISODate,
-  "started_at": ISODate,
-  "finished_at": ISODate
-}
-```
+### Парсинг AI-рейтинга
 
-**Индексы:** job_id (unique), status, reference_id  
-**Статусы:** pending → running → done | error  
-**Типы:** ai_analysis, parse_bond, parse_emitter, sync_issuer  
-**Дедупликация:** перед созданием проверяется findPendingJob(type, referenceId)
+См. `bond_analyses` выше.
 
----
-
-#### issuer_ratings — кредитные рейтинги эмитентов
-
-```json
-{
-  "_id": ObjectId,
-  "emitter_id": 712,
-  "issuer": "ОАО \"РЖД\"",
-  "agency": "АКРА",
-  "rating": "AA+(RU)",
-  "score": 9,
-  "updated_at": ISODate
-}
-```
-
-**Индексы:** emitter_id, (emitter_id + agency) unique  
-**Источник:** Автоматически из dohod.ru при запросе `/bonds/{secid}/dohod`  
-**Обновление:** При каждом FetchAndSave — извлекаются АКРА, Эксперт РА, Fitch, Moody's, S&P  
-**Score:** Берётся из `credit_rating` поля dohod.ru (1-10 шкала)  
-**Связь:** `emitter_id` из `bond_issuers` коллекции (MOEX disclosure API)
-
----
-
-#### dohod_details — данные облигации с dohod.ru
-
-```json
-{
-  "_id": ObjectId,
-  "isin": "RU000A0JSGV0",
-  "secid": "RU000A0JSGV0",
-  "issuer_name": "ОАО \"РЖД\"",
-  "credit_rating": 9,
-  "credit_rating_text": "AA",
-  "akra": "AA+(RU)",
-  "expert_ra": "ruAAA",
-  "quality": 4.0,
-  "description": "Описание эмитента...",
-  "event": "право продать (put)",
-  "coupon_rate": 9.8,
-  "simple_yield": 15.15,
-  "fetched_at": ISODate,
-  "updated_at": ISODate
-}
-```
-
-**Индексы:** isin (unique), secid  
-**TTL:** 30 дней  
-**Источник:** HTTP парсинг `__NUXT_DATA__` с analytics.dohod.ru  
-**Содержит:** ~80 полей (рейтинги, качество, финансы эмитента, параметры облигации)
-
----
-
-#### chat_sessions — чат-сессии
-
-```json
-{
-  "_id": ObjectId,
-  "session_id": "uuid-v4",
-  "title": "Анализ ОФЗ",
-  "agent_type": "analyst",
-  "created_at": ISODate,
-  "updated_at": ISODate
-}
-```
-
-**Индексы:** session_id (unique), updated_at  
-**Типы агентов:** analyst, report, support
-
----
-
-#### chat_messages — сообщения чата
-
-```json
-{
-  "_id": ObjectId,
-  "session_id": "uuid-v4",
-  "role": "user",
-  "content": "Проанализируй ОФЗ-26238",
-  "created_at": ISODate
-}
-```
-
-**Индексы:** session_id, created_at  
-**Роли:** user, assistant, system
-
----
-
-### Внешние данные (не хранятся, кэшируются в Redis)
-
-#### MOEX ISS — Облигация
-
-Ответ MOEX ISS API (кэш 24 часа):
-
-```json
-{
-  "SECID": "RU000A105KV7",
-  "SHORTNAME": "Сбер Б БО37",
-  "SECNAME": "Сбербанк ПАО БО-37",
-  "ISIN": "RU000A105KV7",
-  "FACEVALUE": 1000,
-  "MATDATE": "2027-03-15",
-  "COUPONPERIOD": 182,
-  "COUPONVALUE": 36.90,
-  "COUPONPERCENT": 7.38,
-  "NEXTCOUPON": "2026-09-15",
-  "ACCRUEDINT": 12.45,
-  "BONDTYPE": "Корпоративная",
-
-  "LAST": 98.50,
-  "BID": 98.45,
-  "OFFER": 98.60,
-  "YIELD": 8.12,
-  "DURATION": 485,
-  "VOLTODAY": 15000,
-
-  "_calculated": {
-    "PRICE_RUB": 985.00,
-    "VALUE_TODAY_RUB": 14775000,
-    "DAYS_TO_MATURITY": 341,
-    "IS_FLOAT": false,
-    "IS_INDEXED": false,
-    "BOND_CATEGORY": "Корпоративная",
-    "RISK_CATEGORY": "moderate"
-  }
-}
-```
-
-**Критично:** Цены MOEX — в ПРОЦЕНТАХ от номинала, не в рублях!
-- `PRICE_RUB = (LAST / 100) × FACEVALUE`
-- `VALUE_TODAY_RUB = VOLTODAY × PRICE_RUB`
-
----
-
-### Бизнес-правила
-
-#### Парсинг AI-рейтинга (приоритет)
-
-```
-1. [RATING:72]                     — машиночитаемый тег (высший приоритет)
-2. "Итоговая оценка: **72/100**"   — контекст + markdown bold
-3. "Итоговая оценка: 72 баллов"    — контекст + словоформа
-4. "Оценка: 72/100"                — альтернативный контекст
-5. **72/100** (standalone)          — только bold
-6. Последний 72/100 в тексте        — fallback
-```
-
-#### Типы купонов
+### Типы купонов
 
 ```
 IS_FLOAT    = BONDTYPE содержит "Флоатер" или "Float"
 IS_INDEXED  = SECTYPE === "6" или BONDTYPE содержит "Индексируемые"
 
 Отображение купона:
-  Флоатер: (COUPONMIN + COUPONMAX) / 2
-  Обычный: COUPONPERCENT
+  Флоатер:  (COUPONMIN + COUPONMAX) / 2
+  Обычный:  COUPONPERCENT
   Fallback: (COUPONVALUE / FACEVALUE) × 100
 ```
 
-#### Месячные купоны
+### Месячные купоны
 
-```
-COUPONPERIOD >= 27 AND COUPONPERIOD <= 33 → ежемесячный купон
-```
+`COUPONPERIOD >= 27 AND COUPONPERIOD <= 33`.
 
-#### Сортировка облигаций
+### Сортировки облигаций (`?sort=`)
 
-```
-best          — комплексный рейтинг (доходность + объём + срок)
-yield_desc    — YIELD убывание
-yield_asc     — YIELD возрастание
-maturity_asc  — MATDATE ближайшее погашение
-maturity_desc — MATDATE дальнее погашение
-volume_desc   — объём торгов убывание
-coupon_desc   — купонная ставка убывание
-coupon_asc    — купонная ставка возрастание
-```
+`best`, `yield_desc`, `yield_asc`, `maturity_asc`, `maturity_desc`, `volume_desc`, `coupon_desc`, `coupon_asc`.
 
-#### TTL кэшей
+### Дедупликация AI-задач
 
-| Данные | TTL | Хранилище |
-|--------|-----|-----------|
-| Список облигаций MOEX | 24 часа | Redis |
-| Детали облигации MOEX | 24 часа | Redis |
-| Купоны и история MOEX | 24 часа | Redis |
-| Парсинг dohod.ru | 30 дней | MongoDB (TTL index) |
-| Парсинг эмитента | 30 дней | MongoDB (TTL index) |
-| AI-анализы | ∞ | MongoDB |
-| Чаты и сообщения | ∞ | MongoDB |
+Перед созданием task'a — `QueueRepo.FindPending(type, secid)`. Если есть `pending`/`running` с тем же ключом — возвращается существующий `job_id`.
 
-#### Retry-логика OpenAI
+### Система чат-агентов
 
-```
-Макс. попыток: 3
-Backoff: 2с, 4с (экспоненциальный)
-Retry при: 429 (rate limit), 5xx
-Успех при: 2xx
-Отмена при: 4xx (кроме 429)
-Таймаут: 200с на запрос
-```
+| Тип | Название | Промпт |
+|---|---|---|
+| analyst | Финансовый аналитик | `data/prompts/analyst.txt` |
+| report | Генератор отчётов | `data/prompts/report.txt` |
+| support | Анализ поддержки | `data/prompts/support.txt` |
 
-#### Дедупликация задач
-
-```
-Перед созданием задачи:
-  findPendingJob(type, referenceId)
-  → Если есть pending/running задача с тем же типом и referenceId
-  → Вернуть существующий job_id вместо создания нового
-```
-
-### Система агентов (чат)
-
-| Тип | Название | Промпт-файл | Описание |
-|-----|---------|-------------|----------|
-| analyst | Финансовый аналитик | analyst.txt | Обсуждение облигаций, образование |
-| report | Генератор отчётов | report.txt | Структурирование заметок в документы |
-| support | Анализ поддержки | support.txt | Анализ тикетов, root cause |
-
-Промпты загружаются из `data/prompts/{type}.txt`.
-
-### AI-анализ: 4-блочная система оценки
+### AI-анализ — 4-блочная оценка (используется в Фазе 2 как один из факторов скоринга)
 
 ```
 Кредитное качество:       /45 баллов
-Ликвидность и доступность: /25 баллов
-Адекватность доходности:   /15 баллов
-Структура выпуска:         /15 баллов
-────────────────────────────────────
-Итого:                     /100 баллов → [RATING:XX]
+Ликвидность:              /25 баллов
+Адекватность доходности:  /15 баллов
+Структура выпуска:        /15 баллов
+─────────────────────────────────────
+Итого:                    /100 → [RATING:XX]
 ```
 
-Промпт: `data/prompts/bond_analyst.txt`
+Промпт: `data/prompts/bond_analyst.txt`.

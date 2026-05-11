@@ -20,92 +20,17 @@
 
     <!-- Bond data -->
     <template v-else-if="data">
-      <!-- Header card -->
-      <div class="mb-4">
-        <div class="row g-4 align-items-stretch">
-          <!-- Left: name + badges + info row -->
-          <div class="col-lg-7">
-            <div class="card p-3 h-100">
-              <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
-                <h1 class="h4 fw-bold mb-0">{{ data.shortname }}</h1>
-                <!-- Favorite toggle -->
-                <button
-                  v-if="auth.isLoggedIn.value"
-                  class="btn btn-link p-1"
-                  :class="favorites.isFavorite(data.secid) ? 'text-warning' : 'text-muted'"
-                  :title="favorites.isFavorite(data.secid) ? 'Убрать из избранного' : 'В избранное'"
-                  @click="favorites.toggle(data.secid)"
-                >
-                  <i :class="favorites.isFavorite(data.secid) ? 'bi-star-fill' : 'bi-star'" class="bi fs-5"></i>
-                </button>
-                <span v-if="data.trading_status === 'T'" class="badge bg-success">{{ data.boardname || 'Торги идут' }}</span>
-                <span v-if="data.trading_status === 'N'" class="badge bg-secondary">Торги не ведутся</span>
-                <span class="badge bg-light text-dark border font-monospace">{{ data.boardid || 'TQCB' }}</span>
-              </div>
-              <!-- Info row: ISIN | Код | Тип | Валюта | Ratings -->
-              <div class="d-flex align-items-center gap-4 flex-wrap small" style="color: var(--nla-text)">
-                <div>
-                  <span class="text-muted">ISIN</span>
-                  <span class="ms-1 fw-semibold font-monospace">{{ data.isin }}</span>
-                </div>
-                <div>
-                  <span class="text-muted">Код</span>
-                  <span class="ms-1 fw-semibold font-monospace">{{ data.secid }}</span>
-                </div>
-                <div v-if="data.regnumber">
-                  <span class="text-muted">Рег. №</span>
-                  <span class="ms-1 fw-semibold font-monospace">{{ data.regnumber }}</span>
-                </div>
-                <div>
-                  <span class="text-muted">Тип</span>
-                  <span class="ms-1 fw-semibold">{{ data.bond_category }}</span>
-                </div>
-                <div>
-                  <span class="text-muted">Валюта</span>
-                  <span class="ms-1 fw-semibold">{{ data.currencyid === 'SUR' ? 'RUB' : data.currencyid || 'RUB' }}</span>
-                </div>
-                <span
-                  v-if="analysisStats?.avg_rating"
-                  class="badge fw-semibold"
-                  :style="fmt.aiRatingStyleSoft(analysisStats.avg_rating)"
-                  :title="`AI: средний балл ${analysisStats.avg_rating.toFixed(1)}, анализов ${analysisStats.total}`"
-                >🤖 {{ Math.round(analysisStats.avg_rating) }}</span>
-                <!-- Inline credit ratings -->
-                <template v-if="issuerRating && issuerRating.ratings.length">
-                  <span
-                    v-for="r in issuerRating.ratings.filter(x => x.rating && x.rating !== 'NULL')"
-                    :key="r.agency"
-                    class="badge font-monospace"
-                    :style="fmt.ratingChipStyle(r.rating)"
-                    style="font-size: 11px; padding: 3px 7px"
-                  ><span style="font-weight:700">{{ r.rating }}</span> <span style="font-weight:400;opacity:0.7;font-family:var(--bs-body-font-family)">{{ r.agency }}</span></span>
-                </template>
-                <span v-else class="badge" style="font-size: 10px; background: rgba(108,117,125,0.08); color: var(--nla-text-muted)">Рейтинг не присвоен</span>
-              </div>
-            </div>
-          </div>
-          <!-- Right: price card -->
-          <div class="col-lg-5">
-            <div class="card p-3 h-100" style="border-left: 3px solid var(--nla-primary)">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="small text-muted mb-1">Текущая цена</div>
-                  <div class="h4 fw-bold font-monospace mb-0">{{ data.last != null ? fmt.percent(data.last) : '—' }}</div>
-                  <div class="small font-monospace text-muted">{{ fmt.priceRub(data.price_rub) }}</div>
-                  <div v-if="data.last_change_prcnt != null" :class="data.last_change_prcnt >= 0 ? 'text-success' : 'text-danger'" class="small fw-semibold mt-1">
-                    {{ data.last_change_prcnt >= 0 ? '+' : '' }}{{ data.last_change != null ? data.last_change.toFixed(2) : '0' }} ({{ data.last_change_prcnt >= 0 ? '+' : '' }}{{ data.last_change_prcnt.toFixed(2) }}%)
-                  </div>
-                </div>
-                <div class="text-end">
-                  <div class="small text-muted mb-1">Доходность</div>
-                  <div class="h5 fw-bold text-positive font-monospace mb-0">{{ fmt.percent(data.yield) }}</div>
-                  <div class="small text-muted mt-1">до {{ fmt.date(data.matdate) }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <BondHero
+        :bond="data"
+        :ratings="heroRatings"
+        :ai-score="analysisStats?.avg_rating ?? null"
+        :issuer-name="issuerRating?.issuer"
+        :is-favorite="favorites.isFavorite(data.secid)"
+        class="mb-4"
+        @toggle-favorite="favorites.toggle(data.secid)"
+        @share="copyShareLink"
+        @analyze="activeTab = 'ai'"
+      />
 
       <!-- Tabs (pill-style) -->
       <nav class="bond-tabs mb-4">
@@ -122,7 +47,7 @@
 
       <!-- Tab content -->
       <div>
-        <BondBasicTab v-if="activeTab === 'basic'" :bond="data" />
+        <BondInfoBasic v-if="activeTab === 'basic'" :bond="data" />
         <BondTradingTab v-else-if="activeTab === 'trading'" :bond="data" />
         <BondCouponsTab v-else-if="activeTab === 'coupons'" :coupons="coupons ?? []" :bond="data" />
         <BondYieldsTab v-else-if="activeTab === 'yields'" :bond="data" />
@@ -140,13 +65,10 @@ import type { IssuerRatingResponse, DohodBondData } from '~/composables/useApi'
 
 const route = useRoute()
 const api = useApi()
-const fmt = useFormat()
-const auth = useAuth()
 const favorites = useFavorites()
 
 const secid = route.params.secid as string
 const activeTab = ref('basic')
-const analyzing = ref(false)
 const currentJobId = ref<string | null>(null)
 
 const tabs = [
@@ -156,7 +78,7 @@ const tabs = [
   { id: 'yields', label: 'Доходности', icon: 'bi-graph-up' },
   { id: 'coupons', label: 'Купоны', icon: 'bi-cash-stack' },
   { id: 'details', label: 'Детали', icon: 'bi-list-columns-reverse' },
-  { id: 'ai', label: 'AI Анализ', icon: 'bi-stars' },
+  { id: 'ai', label: 'Индекс', icon: 'bi-stars' },
   { id: 'external', label: 'Внешние', icon: 'bi-box-arrow-up-right' },
 ]
 
@@ -170,12 +92,10 @@ const { data: analysisStats } = useAsyncData(`stats-${secid}`, () => api.getAnal
 
 // Fetch issuer credit rating by emitter_id (from all ratings map)
 const issuerRating = ref<IssuerRatingResponse | null>(null)
-const allRatings = ref<Record<string, IssuerRatingResponse>>({})
 watch(data, async (bond) => {
   if (!bond) return
   try {
     const ratings = await api.getRatings()
-    allRatings.value = ratings
     if (bond.emitter_id) {
       const r = ratings[String(bond.emitter_id)]
       if (r && r.ratings?.length) issuerRating.value = r
@@ -225,21 +145,32 @@ async function pollDohodJob(jobId: string, bondSecid: string) {
 onUnmounted(() => { if (dohodPollTimer) clearTimeout(dohodPollTimer) })
 
 async function startAnalysis() {
-  analyzing.value = true
   try {
     const res = await api.startAnalysis(secid)
     currentJobId.value = res.job_id
     activeTab.value = 'ai'
   } catch (e: any) {
     alert('Ошибка: ' + (e.message || 'Не удалось запустить анализ'))
-  } finally {
-    analyzing.value = false
   }
 }
 
 function onAnalysisComplete() {
   refreshAnalyses()
   currentJobId.value = null
+}
+
+const heroRatings = computed(() =>
+  (issuerRating.value?.ratings ?? [])
+    .filter(r => r.rating && r.rating !== 'NULL')
+    .map(r => ({ agency: r.agency, rating: r.rating }))
+)
+
+async function copyShareLink() {
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+  } catch {
+    /* clipboard unavailable */
+  }
 }
 
 

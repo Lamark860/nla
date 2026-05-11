@@ -15,7 +15,6 @@ import (
 	"nla/internal/config"
 	"nla/internal/database"
 	"nla/internal/handler"
-	mongoRepo "nla/internal/mongo"
 	"nla/internal/queue"
 	"nla/internal/repository"
 	"nla/internal/router"
@@ -28,7 +27,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// PostgreSQL
+	// PostgreSQL — single backing store after Phase 1.
 	pgPool, err := database.NewPostgres(ctx, cfg.PostgresDSN)
 	if err != nil {
 		log.Fatalf("postgres connection failed: %v", err)
@@ -36,42 +35,23 @@ func main() {
 	defer pgPool.Close()
 	log.Println("PostgreSQL connected")
 
-	// MongoDB
-	mongoDB, mongoClient, err := database.NewMongo(ctx, cfg.MongoURI, cfg.MongoDB)
-	if err != nil {
-		log.Fatalf("mongodb connection failed: %v", err)
-	}
-	defer mongoClient.Disconnect(ctx)
-	log.Println("MongoDB connected")
-
-	// Redis
-	rdb, err := database.NewRedis(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
-	if err != nil {
-		log.Fatalf("redis connection failed: %v", err)
-	}
-	defer rdb.Close()
-	log.Println("Redis connected")
-
 	// Repositories
 	userRepo := repository.NewUserRepository(pgPool)
 	favoriteRepo := repository.NewFavoriteRepository(pgPool)
+	analysisRepo := repository.NewAnalysisRepo(pgPool)
+	queueRepo := repository.NewQueueRepo(pgPool)
+	ratingRepo := repository.NewRatingRepo(pgPool)
+	chatRepo := repository.NewChatRepo(pgPool)
+	issuerRepo := repository.NewIssuerRepo(pgPool)
+	detailsRepo := repository.NewDetailsRepo(pgPool)
 
 	// Services
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiration)
 
-	// MongoDB repositories
-	analysisRepo := mongoRepo.NewAnalysisRepo(mongoDB)
-	queueRepo := mongoRepo.NewQueueRepo(mongoDB)
-	ratingRepo := mongoRepo.NewRatingRepo(mongoDB)
-	chatRepo := mongoRepo.NewChatRepo(mongoDB)
-	issuerRepo := mongoRepo.NewIssuerRepo(mongoDB)
-	detailsRepo := mongoRepo.NewDetailsRepo(mongoDB)
-
 	moexClient := moex.NewClient()
 	dohodClient := dohod.NewClient()
-	bondService := service.NewBondService(moexClient, rdb, issuerRepo, ratingRepo)
+	bondService := service.NewBondService(moexClient, issuerRepo, ratingRepo)
 
-	// OpenAI client
 	openaiClient := openai.NewClient(openai.Config{
 		APIKey:  cfg.OpenAIKey,
 		BaseURL: cfg.OpenAIBaseURL,
@@ -80,7 +60,6 @@ func main() {
 		Timeout: time.Duration(cfg.OpenAITimeout) * time.Second,
 	})
 
-	// Services
 	analysisService := service.NewAnalysisService(analysisRepo, openaiClient, "data/prompts/bond_analyst.txt")
 	queueService := service.NewQueueService(queueRepo)
 	ratingService := service.NewRatingService(ratingRepo)
@@ -139,7 +118,6 @@ func main() {
 			log.Printf("Synced %d missing bond_issuers", n)
 		}
 
-		// After issuers are synced, fill missing ratings from MOEX CCI
 		ratingCtx, ratingCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer ratingCancel()
 		if n, err := bondService.SyncMissingRatingsFromMoex(ratingCtx); err != nil {
@@ -158,7 +136,6 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Graceful shutdown
 	go func() {
 		log.Printf("Server starting on :%s (env: %s)", cfg.Port, cfg.Environment)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

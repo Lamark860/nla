@@ -6,14 +6,14 @@ import (
 	"log"
 
 	"nla/internal/model"
-	mongoRepo "nla/internal/mongo"
+	"nla/internal/repository"
 )
 
 type RatingService struct {
-	repo *mongoRepo.RatingRepo
+	repo *repository.RatingRepo
 }
 
-func NewRatingService(repo *mongoRepo.RatingRepo) *RatingService {
+func NewRatingService(repo *repository.RatingRepo) *RatingService {
 	return &RatingService{repo: repo}
 }
 

@@ -10,7 +10,7 @@ import (
 
 	"nla/internal/client/openai"
 	"nla/internal/model"
-	mongoRepo "nla/internal/mongo"
+	"nla/internal/repository"
 )
 
 // Predefined agents (matching ASH config)
@@ -52,11 +52,11 @@ func loadPrompt(name string) string {
 }
 
 type ChatService struct {
-	repo   *mongoRepo.ChatRepo
+	repo   *repository.ChatRepo
 	openai *openai.Client
 }
 
-func NewChatService(repo *mongoRepo.ChatRepo, openaiClient *openai.Client) *ChatService {
+func NewChatService(repo *repository.ChatRepo, openaiClient *openai.Client) *ChatService {
 	return &ChatService{
 		repo:   repo,
 		openai: openaiClient,

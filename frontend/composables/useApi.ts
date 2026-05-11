@@ -187,6 +187,7 @@ export interface IssuerRating {
   agency: string
   rating: string
   score: number
+  score_ord: number
   updated_at: string
 }
 

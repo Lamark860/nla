@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>NLA · Screens (light + dark pairs)</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;padding:32px 40px 80px;font-family:Inter,system-ui,sans-serif;background:#1a1a1f;color:#e8e8ec;font-size:14px;line-height:1.5}
+  h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:-0.02em}
+  .lede{color:#9a9aa3;margin:0 0 32px;font-size:14px;max-width:680px}
+  .scene{margin-bottom:48px}
+  .scene-title{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+  .scene-title h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+  .scene-title .num{font:600 11px/1 "JetBrains Mono",monospace;color:#7a7a85;background:#26262d;padding:5px 8px;border-radius:5px;letter-spacing:0.05em}
+  .scene-title .desc{color:#9a9aa3;font-size:13px}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .frame{background:#0e0e12;border:1px solid #2a2a32;border-radius:10px;overflow:hidden}
+  .frame-head{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#15151a;border-bottom:1px solid #2a2a32;font:500 11px/1 "JetBrains Mono",monospace;color:#9a9aa3;letter-spacing:0.04em;text-transform:uppercase}
+  .frame-head .dot{width:8px;height:8px;border-radius:50%}
+  .frame-head .dot.l{background:#faf8f5;border:1px solid #ddd}
+  .frame-head .dot.d{background:#0c0e0d;border:1px solid #444}
+  .frame img{display:block;width:100%;height:auto}
+</style>
+</head>
+<body>
+  <h1>NLA · экраны редизайна</h1>
+  <p class="lede">Парные снимки light / dark одной сценой. Палитра <b style="color:#b89cff">violet</b>. Используются как опорный материал для <code>tokens.css</code>, <code>DESIGN.md</code>, реализации компонентов.</p>
+
+  <section class="scene">
+    <div class="scene-title"><span class="num">01</span><h2>Каталог · по эмитентам</h2><span class="desc">главная страница, грид карточек</span></div>
+    <div class="pair">
+      <div class="frame"><div class="frame-head"><span class="dot l"></span>Light</div><img src="by-issuer-light.png" alt="By issuer · light"></div>
+      <div class="frame"><div class="frame-head"><span class="dot d"></span>Dark</div><img src="by-issuer-dark.png" alt="By issuer · dark"></div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <div class="scene-title"><span class="num">02</span><h2>Карточка облигации · вкладка «Параметры»</h2><span class="desc">hero + 5 KPI + 4 информационные панели</span></div>
+    <div class="pair">
+      <div class="frame"><div class="frame-head"><span class="dot l"></span>Light</div><img src="bond-basic-light.png" alt="Bond basic · light"></div>
+      <div class="frame"><div class="frame-head"><span class="dot d"></span>Dark</div><img src="bond-basic-dark.png" alt="Bond basic · dark"></div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <div class="scene-title"><span class="num">03</span><h2>График цены и доходности</h2><span class="desc">SVG-чарт, переключатель периодов, статистика</span></div>
+    <div class="pair">
+      <div class="frame"><div class="frame-head"><span class="dot l"></span>Light</div><img src="bond-chart-light.png" alt="Bond chart · light"></div>
+      <div class="frame"><div class="frame-head"><span class="dot d"></span>Dark</div><img src="bond-chart-dark.png" alt="Bond chart · dark"></div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <div class="scene-title"><span class="num">04</span><h2>График купонов</h2><span class="desc">сводка + таблица 20 выплат с пилл-статусами</span></div>
+    <div class="pair">
+      <div class="frame"><div class="frame-head"><span class="dot l"></span>Light</div><img src="bond-coupons-light.png" alt="Bond coupons · light"></div>
+      <div class="frame"><div class="frame-head"><span class="dot d"></span>Dark</div><img src="bond-coupons-dark.png" alt="Bond coupons · dark"></div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <div class="scene-title"><span class="num">05</span><h2>Стакан и лента сделок</h2><span class="desc">биды/офера с барами объёма + buy/sell поток</span></div>
+    <div class="pair">
+      <div class="frame"><div class="frame-head"><span class="dot l"></span>Light</div><img src="bond-trades-light.png" alt="Bond trades · light"></div>
+      <div class="frame"><div class="frame-head"><span class="dot d"></span>Dark</div><img src="bond-trades-dark.png" alt="Bond trades · dark"></div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <div class="scene-title"><span class="num">06</span><h2>Профиль эмитента</h2><span class="desc">шапка, метрики, облигации, рейтинги, качество</span></div>
+    <div class="pair">
+      <div class="frame"><div class="frame-head"><span class="dot l"></span>Light</div><img src="bond-issuer-light.png" alt="Issuer profile · light"></div>
+      <div class="frame"><div class="frame-head"><span class="dot d"></span>Dark</div><img src="bond-issuer-dark.png" alt="Issuer profile · dark"></div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <div class="scene-title"><span class="num">07</span><h2>AI-аналитика</h2><span class="desc">форма, история анализов, развёрнутый результат</span></div>
+    <div class="pair">
+      <div class="frame"><div class="frame-head"><span class="dot l"></span>Light</div><img src="bond-ai-light.png" alt="AI · light"></div>
+      <div class="frame"><div class="frame-head"><span class="dot d"></span>Dark</div><img src="bond-ai-dark.png" alt="AI · dark"></div>
+    </div>
+  </section>
+</body>
+</html>

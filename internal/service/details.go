@@ -8,7 +8,7 @@ import (
 
 	"nla/internal/client/dohod"
 	"nla/internal/model"
-	mongorepo "nla/internal/mongo"
+	"nla/internal/repository"
 )
 
 const (
@@ -19,12 +19,12 @@ const (
 
 type DetailsService struct {
 	dohodClient *dohod.Client
-	detailsRepo *mongorepo.DetailsRepo
-	ratingRepo  *mongorepo.RatingRepo
-	issuerRepo  *mongorepo.IssuerRepo
+	detailsRepo *repository.DetailsRepo
+	ratingRepo  *repository.RatingRepo
+	issuerRepo  *repository.IssuerRepo
 }
 
-func NewDetailsService(dohodClient *dohod.Client, detailsRepo *mongorepo.DetailsRepo, ratingRepo *mongorepo.RatingRepo, issuerRepo *mongorepo.IssuerRepo) *DetailsService {
+func NewDetailsService(dohodClient *dohod.Client, detailsRepo *repository.DetailsRepo, ratingRepo *repository.RatingRepo, issuerRepo *repository.IssuerRepo) *DetailsService {
 	return &DetailsService{
 		dohodClient: dohodClient,
 		detailsRepo: detailsRepo,

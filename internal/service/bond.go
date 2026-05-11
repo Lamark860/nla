@@ -5,28 +5,89 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
+	"sync"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 
 	"nla/internal/client/moex"
 	"nla/internal/model"
-	mongorepo "nla/internal/mongo"
+	"nla/internal/repository"
 )
 
 const bondsCacheKey = "bonds:list"
 const bondCachePrefix = "bonds:"
 const bondsCacheTTL = 24 * time.Hour
 
-type BondService struct {
-	moex       *moex.Client
-	redis      *redis.Client
-	issuerRepo *mongorepo.IssuerRepo
-	ratingRepo *mongorepo.RatingRepo
+// memoryCache is a small in-process cache for MOEX responses. Replaces the
+// previous Redis usage (Phase 1) — for a single-instance API this is enough,
+// for multi-instance we'd switch back to something networked.
+type memoryCache struct {
+	mu      sync.RWMutex
+	entries map[string]memoryCacheEntry
 }
 
-func NewBondService(moexClient *moex.Client, rdb *redis.Client, issuerRepo *mongorepo.IssuerRepo, ratingRepo *mongorepo.RatingRepo) *BondService {
-	return &BondService{moex: moexClient, redis: rdb, issuerRepo: issuerRepo, ratingRepo: ratingRepo}
+type memoryCacheEntry struct {
+	value     []byte
+	expiresAt time.Time
+}
+
+func newMemoryCache() *memoryCache {
+	return &memoryCache{entries: make(map[string]memoryCacheEntry)}
+}
+
+func (c *memoryCache) Get(key string) ([]byte, bool) {
+	c.mu.RLock()
+	e, ok := c.entries[key]
+	c.mu.RUnlock()
+	if !ok || time.Now().After(e.expiresAt) {
+		return nil, false
+	}
+	return e.value, true
+}
+
+func (c *memoryCache) Set(key string, value []byte, ttl time.Duration) {
+	c.mu.Lock()
+	c.entries[key] = memoryCacheEntry{value: value, expiresAt: time.Now().Add(ttl)}
+	c.mu.Unlock()
+}
+
+func (c *memoryCache) Delete(key string) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, ok := c.entries[key]; ok {
+		delete(c.entries, key)
+		return 1
+	}
+	return 0
+}
+
+func (c *memoryCache) DeletePrefix(prefix string) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	count := 0
+	for k := range c.entries {
+		if strings.HasPrefix(k, prefix) {
+			delete(c.entries, k)
+			count++
+		}
+	}
+	return count
+}
+
+type BondService struct {
+	moex       *moex.Client
+	cache      *memoryCache
+	issuerRepo *repository.IssuerRepo
+	ratingRepo *repository.RatingRepo
+}
+
+func NewBondService(moexClient *moex.Client, issuerRepo *repository.IssuerRepo, ratingRepo *repository.RatingRepo) *BondService {
+	return &BondService{
+		moex:       moexClient,
+		cache:      newMemoryCache(),
+		issuerRepo: issuerRepo,
+		ratingRepo: ratingRepo,
+	}
 }
 
 // GetBondsPaginated returns sorted and paginated bonds
@@ -60,9 +121,9 @@ func (s *BondService) GetBondsPaginated(ctx context.Context, page, perPage int, 
 // GetBondDetail returns full details for a single bond
 func (s *BondService) GetBondDetail(ctx context.Context, secid string) (*model.Bond, error) {
 	cacheKey := bondCachePrefix + secid
-	if cached, err := s.redis.Get(ctx, cacheKey).Result(); err == nil {
+	if cached, ok := s.cache.Get(cacheKey); ok {
 		var bond model.Bond
-		if json.Unmarshal([]byte(cached), &bond) == nil {
+		if json.Unmarshal(cached, &bond) == nil {
 			return &bond, nil
 		}
 	}
@@ -93,7 +154,7 @@ func (s *BondService) GetBondDetail(ctx context.Context, secid string) (*model.B
 	}
 
 	if data, err := json.Marshal(bond); err == nil {
-		s.redis.Set(ctx, cacheKey, data, bondsCacheTTL)
+		s.cache.Set(cacheKey, data, bondsCacheTTL)
 	}
 
 	return &bond, nil
@@ -165,7 +226,7 @@ func (s *BondService) GetMonthlyBonds(ctx context.Context) ([]model.Bond, error)
 	return monthly, nil
 }
 
-// GetBondsGroupedByIssuer returns bonds grouped by emitter_id from MongoDB bond_issuers
+// GetBondsGroupedByIssuer returns bonds grouped by emitter_id from bond_issuers table
 func (s *BondService) GetBondsGroupedByIssuer(ctx context.Context, monthlyOnly bool) (*model.IssuerGroupResponse, error) {
 	bonds, err := s.getAllBonds(ctx)
 	if err != nil {
@@ -277,31 +338,11 @@ func (s *BondService) GetBondsGroupedByIssuer(ctx context.Context, monthlyOnly b
 	}, nil
 }
 
-// ClearCache removes all bond-related keys from Redis
-func (s *BondService) ClearCache(ctx context.Context) (int64, error) {
+// ClearCache removes all bond-related cache entries
+func (s *BondService) ClearCache(_ context.Context) (int64, error) {
 	var total int64
-
-	if n, _ := s.redis.Del(ctx, bondsCacheKey).Result(); n > 0 {
-		total += n
-	}
-
-	var cursor uint64
-	for {
-		keys, nextCursor, err := s.redis.Scan(ctx, cursor, bondCachePrefix+"*", 100).Result()
-		if err != nil {
-			break
-		}
-		if len(keys) > 0 {
-			if n, _ := s.redis.Del(ctx, keys...).Result(); n > 0 {
-				total += n
-			}
-		}
-		cursor = nextCursor
-		if cursor == 0 {
-			break
-		}
-	}
-
+	total += int64(s.cache.Delete(bondsCacheKey))
+	total += int64(s.cache.DeletePrefix(bondCachePrefix))
 	return total, nil
 }
 
@@ -312,9 +353,9 @@ func (s *BondService) ToggleIssuer(ctx context.Context, emitterID int64, hidden 
 
 // getAllBonds loads all bonds from cache or MOEX
 func (s *BondService) getAllBonds(ctx context.Context) ([]model.Bond, error) {
-	if cached, err := s.redis.Get(ctx, bondsCacheKey).Result(); err == nil {
+	if cached, ok := s.cache.Get(bondsCacheKey); ok {
 		var bonds []model.Bond
-		if json.Unmarshal([]byte(cached), &bonds) == nil {
+		if json.Unmarshal(cached, &bonds) == nil {
 			return bonds, nil
 		}
 	}
@@ -349,7 +390,7 @@ func (s *BondService) getAllBonds(ctx context.Context) ([]model.Bond, error) {
 	}
 
 	if data, err := json.Marshal(bonds); err == nil {
-		s.redis.Set(ctx, bondsCacheKey, data, bondsCacheTTL)
+		s.cache.Set(bondsCacheKey, data, bondsCacheTTL)
 	}
 
 	return bonds, nil

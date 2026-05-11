@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<title>NLA · По эмитентам</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  /* ─── Palette tokens (set via [data-palette]) ─────────────────── */
+  :root[data-palette="violet"]{
+    --accent: #5b3aa8;
+    --accent-soft: #ede8f8;
+    --accent-ink: #3b2480;
+    --accent-dark: #b89cff;
+    --accent-dark-soft: #2a1e54;
+  }
+  :root[data-palette="blue"]{
+    --accent: #1f4ed8;
+    --accent-soft: #e4ecff;
+    --accent-ink: #15389e;
+    --accent-dark: #6fa0ff;
+    --accent-dark-soft: #0f234f;
+  }
+  :root[data-palette="teal"]{
+    --accent: #0e7a78;
+    --accent-soft: #d8efee;
+    --accent-ink: #075654;
+    --accent-dark: #4dd0bd;
+    --accent-dark-soft: #0a3837;
+  }
+  :root[data-palette="graphite"]{
+    --accent: #2d2d33;
+    --accent-soft: #ececef;
+    --accent-ink: #161618;
+    --accent-dark: #d4d4dc;
+    --accent-dark-soft: #2a2a30;
+  }
+
+  /* ─── Light theme (C: soft modern premium) ────────────────────── */
+  :root[data-theme="light"]{
+    --bg: #faf8f5;          /* warm off-white */
+    --bg-2: #f3efea;        /* slight warm */
+    --surface: #ffffff;
+    --surface-2: #fbf9f6;
+    --border: #ece7df;
+    --border-strong: #d8d1c5;
+    --ink: #1a1814;
+    --ink-2: #45413a;
+    --muted: #8a8478;
+    --muted-2: #b0a99c;
+    --pos: #0d7a4e;         /* зелёный — вверх / доходн. */
+    --pos-soft: #d4ecdf;
+    --neg: #c2410c;
+    --neg-soft: #fce4d4;
+    --warn: #b45309;
+    --shadow-sm: 0 1px 2px rgba(40,30,15,.04), 0 1px 1px rgba(40,30,15,.03);
+    --shadow-md: 0 1px 3px rgba(40,30,15,.06), 0 4px 14px rgba(40,30,15,.06);
+    --accent-current: var(--accent);
+    --accent-current-soft: var(--accent-soft);
+    --accent-current-ink: var(--accent-ink);
+  }
+
+  /* ─── Dark theme (B: terminal · data-first) ───────────────────── */
+  :root[data-theme="dark"]{
+    --bg: #0c0e0d;
+    --bg-2: #131614;
+    --surface: #161917;
+    --surface-2: #1d211e;
+    --border: #262a27;
+    --border-strong: #353a36;
+    --ink: #e7ece7;
+    --ink-2: #b8c0b8;
+    --muted: #767e76;
+    --muted-2: #4f574f;
+    --pos: #38c172;          /* фондовый зелёный (B accent) */
+    --pos-soft: #143a23;
+    --neg: #ef6c4e;
+    --neg-soft: #3a1c12;
+    --warn: #e8b75d;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-md: 0 4px 18px rgba(0,0,0,.5);
+    --accent-current: var(--accent-dark);
+    --accent-current-soft: var(--accent-dark-soft);
+    --accent-current-ink: var(--accent-dark);
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    font-feature-settings:'cv11','ss01','ss03';
+  }
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-feature-settings:'tnum','zero'}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ─── App shell ───────────────────────────────────────────────── */
+  .shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+  .nav{
+    background:var(--bg-2);
+    border-right:1px solid var(--border);
+    padding:20px 18px;
+    position:sticky; top:0; height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:28px;font-weight:700;letter-spacing:-0.01em;font-size:15px}
+  .brand-mark{
+    width:28px;height:28px;border-radius:8px;
+    background:var(--accent-current);
+    display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;
+    box-shadow:var(--shadow-sm);
+  }
+  :root[data-theme="dark"] .brand-mark{color:#0c0e0d}
+  .nav-section{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin:14px 4px 6px}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;
+    padding:7px 10px;border-radius:8px;
+    color:var(--ink-2);font-size:13px;font-weight:500;
+    cursor:default;
+  }
+  .nav-item:hover{background:rgba(0,0,0,0.03);color:var(--ink)}
+  :root[data-theme="dark"] .nav-item:hover{background:rgba(255,255,255,0.04)}
+  .nav-item.active{background:var(--accent-current-soft);color:var(--accent-current-ink);font-weight:600}
+  .nav-item i{font-size:15px;width:16px;display:inline-flex;justify-content:center}
+
+  .main{padding:28px 36px 80px;max-width:1480px}
+
+  /* ─── Page header ────────────────────────────────────────────── */
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:22px;flex-wrap:wrap}
+  h1.page-title{font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 4px}
+  .page-sub{color:var(--muted);font-size:13px;margin:0}
+  .page-sub b{color:var(--ink-2);font-weight:500}
+  .head-actions{display:flex;gap:8px;align-items:center}
+
+  /* ─── Buttons ────────────────────────────────────────────────── */
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;
+    height:32px;padding:0 12px;border-radius:8px;
+    font-size:12.5px;font-weight:500;
+    border:1px solid var(--border-strong);
+    background:var(--surface);color:var(--ink-2);
+    cursor:default;line-height:1;
+    transition:background .12s, border-color .12s;
+  }
+  .btn:hover{background:var(--surface-2)}
+  .btn.primary{background:var(--accent-current);color:#fff;border-color:transparent}
+  :root[data-theme="dark"] .btn.primary{color:#0c0e0d;font-weight:600}
+  .btn.ghost{border-color:transparent;background:transparent}
+  .btn.ghost:hover{background:var(--bg-2)}
+  .btn-group{display:inline-flex;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:2px}
+  .btn-group .seg{
+    height:26px;padding:0 12px;border-radius:7px;font-size:12px;font-weight:500;
+    color:var(--muted);background:transparent;border:0;display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn-group .seg.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+
+  /* ─── Filters card ───────────────────────────────────────────── */
+  .filters{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:18px;
+    box-shadow:var(--shadow-sm);
+  }
+  .filters-row{display:grid;grid-template-columns:minmax(220px,1.6fr) 1fr 1fr 1fr 1fr;gap:8px}
+  .field{position:relative;display:flex;align-items:center}
+  .field i.lead{position:absolute;left:11px;color:var(--muted);font-size:13px}
+  .input,.select{
+    height:34px;width:100%;
+    background:var(--bg-2);border:1px solid var(--border);
+    border-radius:8px;padding:0 12px;font:inherit;color:var(--ink);
+    font-size:13px;
+  }
+  .input:focus,.select:focus{outline:none;border-color:var(--accent-current);background:var(--surface)}
+  .field.with-icon .input{padding-left:32px}
+  .select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 4 L5 7 L8 4' stroke='%238a8478' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+
+  .filters-range{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px;margin-top:10px;align-items:end}
+  .range-field label{display:block;font-size:10.5px;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;font-weight:500}
+  .range-input{display:flex;align-items:center;gap:0;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;height:30px}
+  .range-input input{
+    width:100%;border:0;background:transparent;color:var(--ink);
+    font:500 12.5px/1 'JetBrains Mono',monospace;
+    text-align:center;padding:0 4px;min-width:0;
+  }
+  .range-input input:focus{outline:none}
+  .range-input span{color:var(--muted-2);font-size:11px;padding:0 2px}
+
+  /* ─── Stats footer ───────────────────────────────────────────── */
+  .stats-bar{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,2.2fr);
+    gap:0;
+    margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
+  }
+  .stat{text-align:center;padding:2px 8px;border-right:1px solid var(--border)}
+  .stat:last-child{border-right:0}
+  .stat-num{font:600 22px/1 'JetBrains Mono',monospace;letter-spacing:-0.01em;color:var(--ink)}
+  .stat-lbl{font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+  .legend{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;align-items:center;
+    padding:0 6px 0 16px;
+  }
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+
+  /* ─── Issuer card ───────────────────────────────────────────── */
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+  @media (max-width:1200px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:760px){.grid{grid-template-columns:1fr}}
+
+  .icard{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    box-shadow:var(--shadow-sm);
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .icard:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md)}
+
+  .icard-head{padding:14px 16px;cursor:default}
+  .icard-title{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px;
+  }
+  .icard-name{font-size:15px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);line-height:1.25;
+    overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  }
+  .icard-chev{
+    flex-shrink:0;width:28px;height:28px;border-radius:8px;
+    background:var(--bg-2);color:var(--muted);
+    display:grid;place-items:center;font-size:14px;
+  }
+  .icard.expanded .icard-chev{background:var(--accent-current-soft);color:var(--accent-current-ink)}
+
+  .icard-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:8px}
+
+  /* badges */
+  .id-pill{
+    font:500 10.5px/1 'JetBrains Mono',monospace;
+    background:var(--bg-2);color:var(--muted);
+    padding:4px 7px;border-radius:5px;letter-spacing:0.02em;
+  }
+  .rt{
+    font:600 11px/1 'JetBrains Mono',monospace;
+    padding:4px 7px;border-radius:5px;letter-spacing:0.02em;
+    border:1px solid transparent;
+  }
+  .rt.aaa{background:#dff5e8;color:#0d6e3a;border-color:#bfe9d0}
+  .rt.aa{background:#e3f2dc;color:#3d6e0d;border-color:#cce4bd}
+  .rt.a{background:#fff5d8;color:#7a5800;border-color:#f0e2a3}
+  .rt.bbb{background:#ffe6d4;color:#8a3d00;border-color:#f5cba8}
+  .rt.bb{background:#ffd7d4;color:#8a1f1a;border-color:#f5b1aa}
+  :root[data-theme="dark"] .rt.aaa{background:#143a23;color:#7ee0a3;border-color:#1f5232}
+  :root[data-theme="dark"] .rt.aa{background:#1e3812;color:#a8d97c;border-color:#2c4f1d}
+  :root[data-theme="dark"] .rt.a{background:#3a2f0e;color:#e8c468;border-color:#4f4115}
+  :root[data-theme="dark"] .rt.bbb{background:#3a1f0d;color:#e89b5e;border-color:#4f2c14}
+  :root[data-theme="dark"] .rt.bb{background:#3a1414;color:#e87070;border-color:#4f1f1f}
+
+  .ai-pill{
+    font:500 11px/1 'Inter',sans-serif;
+    padding:4px 7px 4px 6px;border-radius:5px;
+    display:inline-flex;align-items:center;gap:4px;
+    background:var(--accent-current-soft);color:var(--accent-current-ink);
+    border:1px solid transparent;
+  }
+  .ai-pill .dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7}
+  .ai-pill .num{font-family:'JetBrains Mono',monospace;font-weight:600}
+
+  .icard-count{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);margin-top:6px}
+  .icard-count .num{font-weight:600;color:var(--ink-2);font-family:'JetBrains Mono',monospace}
+
+  /* preview row when collapsed */
+  .preview{
+    border-top:1px solid var(--border);
+    padding:10px 16px 12px;
+    background:var(--surface-2);
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    font-size:12px;color:var(--muted);
+  }
+  .preview-name{color:var(--ink-2);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .preview-yield{font:600 13px/1 'JetBrains Mono',monospace;color:var(--pos);white-space:nowrap}
+
+  /* expanded bond cards */
+  .bonds{display:flex;flex-direction:column;background:var(--surface-2);border-top:1px solid var(--border)}
+  .bond{
+    padding:12px 16px;border-bottom:1px solid var(--border);
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .bond:last-child{border-bottom:0}
+  .bond-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .bond-name{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;min-width:0;flex:1;row-gap:5px}
+  .bond-name strong{font-size:13px;color:var(--ink);font-weight:600;letter-spacing:-0.005em;white-space:nowrap}
+  .bond-secid{font:500 10.5px/1 'JetBrains Mono',monospace;color:var(--muted);white-space:nowrap}
+  .bond-tag{font:500 10px/1 'Inter',sans-serif;padding:3px 6px;border-radius:4px;border:1px solid var(--border-strong);color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;flex-shrink:0}
+  .bond-tag.float{background:var(--accent-current-soft);color:var(--accent-current-ink);border-color:transparent}
+  .bond-link{
+    width:26px;height:26px;border-radius:7px;
+    background:var(--surface);border:1px solid var(--border-strong);
+    color:var(--muted);display:grid;place-items:center;font-size:13px;flex-shrink:0;
+  }
+  .bond-link:hover{background:var(--accent-current-soft);color:var(--accent-current-ink);border-color:transparent}
+
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);overflow:hidden}
+  .metric{padding:7px 10px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
+  .metric:last-child{border-right:0}
+  .metric-lbl{font-size:9.5px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)}
+  .metric-val{font:600 13px/1.1 'JetBrains Mono',monospace;color:var(--ink);letter-spacing:-0.01em}
+  .metric-val.up{color:var(--pos)}
+  .metric-val.accent{color:var(--accent-current-ink)}
+  :root[data-theme="dark"] .metric-val.accent{color:var(--accent-current)}
+
+  .dates{display:flex;flex-direction:column;gap:4px;font-size:11.5px}
+  .date-row{display:grid;grid-template-columns:84px minmax(0,1fr) auto;align-items:baseline;gap:8px;min-width:0}
+  .date-lbl{color:var(--muted);font-size:10px;letter-spacing:0.04em;text-transform:uppercase;font-weight:500;white-space:nowrap}
+  .date-val{color:var(--ink-2);font-family:'JetBrains Mono',monospace;font-weight:500;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .date-rel{color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;white-space:nowrap;justify-self:end}
+  .date-rel.soon{color:var(--warn);font-weight:500}
+  .date-empty{color:var(--muted-2)}
+
+  /* Theme switcher pill */
+  .theme-pill{
+    display:inline-flex;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:2px;
+  }
+  .theme-pill button{
+    height:26px;width:30px;border:0;background:transparent;border-radius:7px;
+    color:var(--muted);font-size:13px;display:inline-flex;align-items:center;justify-content:center;
+  }
+  .theme-pill button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+
+  /* small details */
+  .divider-soft{height:1px;background:var(--border);margin:8px 0}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+const { useState, useMemo, useEffect } = React;
+
+/* ─── Mock data — taken from real component shape ─────────────── */
+const ISSUERS = [
+  {
+    id: 1234, name: "ПАО Сбербанк", bond_count: 47,
+    ratings: [
+      { agency: "АКРА",       rating: "AAA(RU)",   tier: "aaa" },
+      { agency: "Эксперт РА", rating: "ruAAA",     tier: "aaa" },
+      { agency: "НКР",        rating: "AAA.ru",    tier: "aaa" },
+    ],
+    ai: { avg: 87, min: 82, max: 93, total: 31 },
+    bonds: [
+      { secid:"RU000A105N84", name:"Сбер Б1Р-22R",  period:"6 мес.", flags:[],            price:99.86, yield:13.42, nkd:18.45, coupon:13.50, put:"2026-04-15", putDays:138, call:null, mat:"2029-04-12", matDays:1234, ai:88 },
+      { secid:"RU000A106Y92", name:"Сбер 002P-04",  period:"3 мес.", flags:["float"],     price:100.21,yield:21.08, nkd:5.12,  nkd2:0, coupon:21.00, put:null, call:"2026-09-01", callDays:277, mat:"2030-08-21", matDays:1730, ai:84 },
+      { secid:"RU000A108KX1", name:"СберБ-Биз1Р3",  period:"12 мес.",flags:[],            price:101.50,yield:11.85, nkd:42.10, coupon:11.95, put:"2027-03-12", putDays:469, call:null, mat:"2031-03-10", matDays:1932, ai:91 },
+    ]
+  },
+  {
+    id: 8821, name: "Газпром нефть", bond_count: 12,
+    ratings: [
+      { agency: "АКРА",       rating: "AAA(RU)",   tier: "aaa" },
+      { agency: "Эксперт РА", rating: "ruAAA",     tier: "aaa" },
+    ],
+    ai: { avg: 79, min: 71, max: 86, total: 8 },
+    bonds: [
+      { secid:"RU000A107XK4", name:"ГазпрНф 003P-12R", period:"3 мес.", flags:["float"], price:99.45, yield:19.84, nkd:4.78, coupon:19.75, put:null, call:null, mat:"2027-11-04", matDays:608, ai:78 },
+      { secid:"RU000A1093W4", name:"ГазпрНф 004P-01R", period:"6 мес.", flags:[],         price:97.32, yield:14.12, nkd:24.66, coupon:13.50, put:"2026-12-08", putDays:374, call:null, mat:"2031-06-03", matDays:2017, ai:80 },
+    ]
+  },
+  {
+    id: 5512, name: "ВТБ Банк (ПАО)", bond_count: 23,
+    ratings: [
+      { agency: "АКРА",       rating: "AAA(RU)",   tier: "aaa" },
+      { agency: "Эксперт РА", rating: "ruAA+",     tier: "aa" },
+      { agency: "НКР",        rating: "AA+.ru",    tier: "aa" },
+    ],
+    ai: { avg: 72, min: 64, max: 81, total: 14 },
+    bonds: [
+      { secid:"RU000A108V47", name:"ВТБ Б-1-353",   period:"3 мес.", flags:["float"], price:100.84, yield:22.18, nkd:6.34, coupon:22.00, put:null, call:null, mat:"2026-11-21", matDays:357, ai:73 },
+    ]
+  },
+  {
+    id: 2090, name: "ПАО «Полюс»", bond_count: 6,
+    ratings: [
+      { agency: "АКРА",       rating: "AAA(RU)",   tier: "aaa" },
+      { agency: "Эксперт РА", rating: "ruAAA",     tier: "aaa" },
+    ],
+    ai: { avg: 81, min: 78, max: 84, total: 5 },
+    bonds: [
+      { secid:"RU000A1092T0", name:"Полюс Б1Р4",   period:"12 мес.", flags:[],         price:103.20, yield:9.85, nkd:38.40, coupon:10.20, put:null, call:null, mat:"2032-04-19", matDays:2342, ai:82 },
+    ]
+  },
+  {
+    id: 7766, name: "ОФЗ-26243", bond_count: 1,
+    ratings: [
+      { agency: "АКРА",       rating: "AAA(RU)",   tier: "aaa" },
+    ],
+    ai: { avg: 65, min: 65, max: 65, total: 2 },
+    bonds: [
+      { secid:"SU26243RMFS4", name:"ОФЗ 26243",     period:"6 мес.", flags:[],         price:88.45, yield:15.62, nkd:31.20, coupon:9.80, put:null, call:null, mat:"2038-05-19", matDays:4503, ai:65 },
+    ]
+  },
+  {
+    id: 4413, name: "АФК «Система»", bond_count: 18,
+    ratings: [
+      { agency: "Эксперт РА", rating: "ruAA-",     tier: "aa" },
+      { agency: "АКРА",       rating: "AA-(RU)",   tier: "aa" },
+      { agency: "НКР",        rating: "AA-.ru",    tier: "aa" },
+    ],
+    ai: { avg: 64, min: 52, max: 76, total: 11 },
+    bonds: [
+      { secid:"RU000A107GN3", name:"Система 1Р30", period:"3 мес.", flags:["float"], price:96.74, yield:25.14, nkd:7.42, coupon:25.00, put:"2026-07-22", putDays:236, call:null, mat:"2030-07-18", matDays:1697, ai:62 },
+    ]
+  },
+];
+
+/* ─── Helpers ─────────────────────────────────────────────────── */
+function plural(n, forms){
+  const m10 = n % 10, m100 = n % 100;
+  if (m100 >= 11 && m100 <= 19) return forms[2];
+  if (m10 === 1) return forms[0];
+  if (m10 >= 2 && m10 <= 4) return forms[1];
+  return forms[2];
+}
+const bondWord = n => plural(n, ['облигация','облигации','облигаций']);
+const fmtPct = (v, d=2) => v == null ? '—' : v.toFixed(d).replace('.', ',');
+const fmtNum = (v, d=2) => v == null ? '—' : v.toFixed(d).replace('.', ',');
+const fmtDate = s => {
+  if (!s) return '—';
+  const [y,m,dd] = s.split('-');
+  return `${dd}.${m}.${y.slice(2)}`;
+};
+const fmtDays = d => d==null ? null : (d < 30 ? `${d} дн` : d < 365 ? `${Math.round(d/30)} мес` : `${(d/365).toFixed(1).replace('.',',')} лет`);
+
+/* ─── AI pill ─────────────────────────────────────────────────── */
+function AiPill({ avg, min, max, total }){
+  const text = (min === max) ? `${avg}` : `${min}–${max}`;
+  return (
+    <span className="ai-pill" title={`AI · средний балл ${avg}, анализов ${total}`}>
+      <span className="dot"/>
+      <span style={{fontSize:10, fontWeight:500, opacity:.85, letterSpacing:'0.04em', textTransform:'uppercase'}}>AI</span>
+      <span className="num">{text}</span>
+    </span>
+  );
+}
+
+/* ─── Issuer card ─────────────────────────────────────────────── */
+function IssuerCard({ issuer, expanded, onToggle }){
+  const firstYield = issuer.bonds[0]?.yield;
+  const moreCount = issuer.bonds.length - 1;
+  return (
+    <div className={"icard" + (expanded ? " expanded" : "")}>
+      <div className="icard-head" onClick={onToggle}>
+        <div className="icard-title">
+          <div className="icard-name">{issuer.name}</div>
+          <div className="icard-chev"><i className={"bi " + (expanded ? "bi-dash-lg" : "bi-plus-lg")}/></div>
+        </div>
+        <div className="icard-meta">
+          <span className="id-pill">{issuer.id}</span>
+          {issuer.ratings.map(r => (
+            <span key={r.agency} className={"rt " + r.tier} title={r.agency}>{r.rating}</span>
+          ))}
+          <AiPill {...issuer.ai}/>
+        </div>
+        <div className="icard-count">
+          <span className="num">{issuer.bond_count}</span>
+          <span>{bondWord(issuer.bond_count)} в обращении</span>
+        </div>
+      </div>
+
+      {!expanded && issuer.bonds[0] && (
+        <div className="preview">
+          <div className="preview-name">
+            {issuer.bonds[0].name}{moreCount > 0 && <span style={{color:'var(--muted-2)'}}> · и ещё {moreCount}</span>}
+          </div>
+          <div className="preview-yield">{fmtPct(firstYield)}%</div>
+        </div>
+      )}
+
+      {expanded && (
+        <div className="bonds">
+          {issuer.bonds.map(b => <BondRow key={b.secid} bond={b}/>)}{/* close anchor below */}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BondRow({ bond }){
+  const yieldHigh = bond.yield > 12;
+  return (
+    <a className="bond" href="bond-detail.html" style={{textDecoration:'none',color:'inherit',display:'block'}}>
+      <div className="bond-head">
+        <div className="bond-name">
+          <strong>{bond.name}</strong>
+          <span className="bond-secid">{bond.secid}</span>
+          {bond.period && <span className="bond-tag">{bond.period}</span>}
+          {bond.flags.includes('float') && <span className="bond-tag float">флоатер</span>}
+        </div>
+        <span className="bond-link" title="Подробнее"><i className="bi bi-arrow-up-right"/></span>
+      </div>
+
+      <div className="metrics">
+        <div className="metric">
+          <span className="metric-lbl">Цена</span>
+          <span className="metric-val">{fmtPct(bond.price)}<span style={{color:'var(--muted-2)',fontSize:10,marginLeft:1}}>%</span></span>
+        </div>
+        <div className="metric">
+          <span className="metric-lbl">Доходн.</span>
+          <span className={"metric-val " + (yieldHigh ? "up" : "accent")}>{fmtPct(bond.yield)}<span style={{color:'currentColor',opacity:.5,fontSize:10,marginLeft:1}}>%</span></span>
+        </div>
+        <div className="metric">
+          <span className="metric-lbl">НКД</span>
+          <span className="metric-val">{fmtNum(bond.nkd)}</span>
+        </div>
+        <div className="metric">
+          <span className="metric-lbl">Купон</span>
+          <span className="metric-val">{fmtPct(bond.coupon)}<span style={{color:'var(--muted-2)',fontSize:10,marginLeft:1}}>%</span></span>
+        </div>
+      </div>
+
+      <div className="dates">
+        <div className="date-row">
+          <span className="date-lbl">Оферта</span>
+          {bond.put ? (<>
+            <span className="date-val">{fmtDate(bond.put)}</span>
+            <span className={"date-rel" + (bond.putDays < 200 ? " soon" : "")}>{fmtDays(bond.putDays)}</span>
+          </>) : (<><span className="date-empty">—</span><span/></>)}
+        </div>
+        <div className="date-row">
+          <span className="date-lbl">Колл-опцион</span>
+          {bond.call ? (<>
+            <span className="date-val">{fmtDate(bond.call)}</span>
+            <span className="date-rel">{fmtDays(bond.callDays)}</span>
+          </>) : (<><span className="date-empty">—</span><span/></>)}
+        </div>
+        <div className="date-row">
+          <span className="date-lbl">Погашение</span>
+          <span className="date-val">{fmtDate(bond.mat)}</span>
+          <span className="date-rel">{fmtDays(bond.matDays)}</span>
+        </div>
+        <div className="date-row" style={{marginTop:2,alignItems:'center'}}>
+          <span className="date-lbl">AI рейтинг</span>
+          <span className="ai-pill" style={{padding:'2px 6px',justifySelf:'start'}}>
+            <span className="dot"/>
+            <span className="num" style={{fontSize:11}}>{bond.ai}<span style={{opacity:.55}}>/100</span></span>
+          </span>
+          <span/>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+/* ─── Filters card ─────────────────────────────────────────────── */
+function Filters({ stats }){
+  return (
+    <div className="filters">
+      <div className="filters-row">
+        <div className="field with-icon">
+          <i className="bi bi-search lead"/>
+          <input className="input" placeholder="Поиск по названию эмитента или ISIN…" defaultValue=""/>
+        </div>
+        <select className="select" defaultValue=""><option value="">Тип купона</option><option>Фиксированный</option><option>Плавающий</option></select>
+        <select className="select" defaultValue="aaa"><option value="">Рейтинг</option><option value="aaa">AAA (9–10)</option><option>AA (7–8)</option><option>A (5–6)</option><option>BBB и ниже</option></select>
+        <select className="select" defaultValue=""><option value="">Период купона</option><option>Ежемесячный</option><option>Ежеквартальный</option><option>Полугодовой</option></select>
+        <select className="select" defaultValue=""><option value="">Категория</option><option>Корпоративные</option><option>ОФЗ</option></select>
+      </div>
+
+      <div className="filters-range">
+        <div className="range-field">
+          <label>Доходность, %</label>
+          <div className="range-input">
+            <input className="mono" placeholder="от" defaultValue="10"/>
+            <span>—</span>
+            <input className="mono" placeholder="до" defaultValue="25"/>
+          </div>
+        </div>
+        <div className="range-field">
+          <label>Купон, % год.</label>
+          <div className="range-input">
+            <input className="mono" placeholder="от" defaultValue=""/>
+            <span>—</span>
+            <input className="mono" placeholder="до" defaultValue=""/>
+          </div>
+        </div>
+        <div className="range-field">
+          <label>Погашение, дн.</label>
+          <div className="range-input">
+            <input className="mono" placeholder="от" defaultValue=""/>
+            <span>—</span>
+            <input className="mono" placeholder="до" defaultValue="2000"/>
+          </div>
+        </div>
+        <div className="range-field">
+          <label>Цена макс., %</label>
+          <div className="range-input">
+            <input className="mono" placeholder="напр. 100" defaultValue=""/>
+          </div>
+        </div>
+        <button className="btn ghost" style={{height:30}}><i className="bi bi-x-lg"/> Сбросить</button>
+      </div>
+
+      <div className="stats-bar">
+        <div className="stat"><div className="stat-num">{stats.issuers}</div><div className="stat-lbl">эмитентов</div></div>
+        <div className="stat"><div className="stat-num">{stats.bonds}</div><div className="stat-lbl">облигаций</div></div>
+        <div className="stat"><div className="stat-num">{stats.shown}</div><div className="stat-lbl">показано</div></div>
+        <div className="legend">
+          <div className="legend-item"><span className="rt aaa">AAA(RU)</span><span>АКРА</span></div>
+          <div className="legend-item"><span className="rt aaa">ruAAA</span><span>Эксперт РА</span></div>
+          <div className="legend-item"><span className="rt aa">AA+.ru</span><span>НКР</span></div>
+          <div className="legend-item"><span className="rt aa">AA</span><span>ДОХОДЪ</span></div>
+          <div className="legend-item"><span className="rt bbb">Baa1</span><span>Moody's</span></div>
+          <div className="legend-item"><span className="rt bb">BB.ru</span><span>НРА</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Sidebar nav ──────────────────────────────────────────────── */
+function Sidebar(){
+  return (
+    <nav className="nav">
+      <div className="brand">
+        <div className="brand-mark">N</div>
+        <div>NLA <span style={{color:'var(--muted)',fontWeight:400}}>· bonds</span></div>
+      </div>
+
+      <div className="nav-section">Каталог</div>
+      <div className="nav-item active"><i className="bi bi-collection"/>По эмитентам</div>
+      <div className="nav-item"><i className="bi bi-calendar3"/>Месячные купоны</div>
+      <div className="nav-item"><i className="bi bi-stars"/>AI-аналитика</div>
+
+      <div className="nav-section">Портфель</div>
+      <div className="nav-item"><i className="bi bi-briefcase"/>Мои бумаги</div>
+      <div className="nav-item"><i className="bi bi-bell"/>Алерты</div>
+
+      <div className="nav-section">Инструменты</div>
+      <div className="nav-item"><i className="bi bi-table"/>Плоский список <span style={{marginLeft:'auto',fontSize:9,color:'var(--muted-2)',letterSpacing:'.05em',textTransform:'uppercase'}}>power</span></div>
+      <div className="nav-item"><i className="bi bi-download"/>Экспорт</div>
+    </nav>
+  );
+}
+
+/* ─── App ──────────────────────────────────────────────────────── */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "palette": "violet",
+  "theme": "light"
+}/*EDITMODE-END*/;
+
+function App(){
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [expanded, setExpanded] = useState(new Set([1234]));
+
+  useEffect(()=>{
+    document.documentElement.setAttribute('data-theme', t.theme);
+    document.documentElement.setAttribute('data-palette', t.palette);
+  }, [t.theme, t.palette]);
+
+  const toggle = (id) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const stats = { issuers: 247, bonds: 1843, shown: 142 };
+
+  return (
+    <>
+      <div className="shell">
+        <Sidebar/>
+        <main className="main">
+          <div className="page-head">
+            <div>
+              <h1 className="page-title">Облигации по эмитентам</h1>
+              <p className="page-sub">Сгруппировано по эмитентам · <b>247</b> компаний · <b>1 843</b> выпуска</p>
+            </div>
+            <div className="head-actions">
+              <div className="btn-group">
+                <button className="seg active"><i className="bi bi-collection"/>Эмитенты</button>
+                <button className="seg"><i className="bi bi-calendar3"/>Купоны</button>
+                <button className="seg"><i className="bi bi-stars"/>AI</button>
+              </div>
+              <div className="theme-pill">
+                <button className={t.theme==='light'?'active':''} onClick={()=>setTweak('theme','light')} title="Светлая"><i className="bi bi-sun"/></button>
+                <button className={t.theme==='dark'?'active':''} onClick={()=>setTweak('theme','dark')} title="Тёмная"><i className="bi bi-moon-stars"/></button>
+              </div>
+              <button className="btn primary"><i className="bi bi-download"/>Экспорт</button>
+            </div>
+          </div>
+
+          <Filters stats={stats}/>
+
+          <div className="grid">
+            {ISSUERS.map(iss => (
+              <IssuerCard
+                key={iss.id}
+                issuer={iss}
+                expanded={expanded.has(iss.id)}
+                onToggle={() => toggle(iss.id)}
+              />
+            ))}
+          </div>
+        </main>
+      </div>
+
+      <TweaksPanel>
+        <TweakSection label="Тема"/>
+        <TweakRadio label="Mode" value={t.theme} options={['light','dark']} onChange={v=>setTweak('theme',v)}/>
+
+        <TweakSection label="Акцентная палитра"/>
+        <TweakRadio
+          label="Палитра"
+          value={t.palette}
+          options={['violet','blue','teal','graphite']}
+          onChange={v=>setTweak('palette',v)}
+        />
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6,marginTop:2}}>
+          {[
+            {k:'violet',  l:'#5b3aa8', d:'#b89cff'},
+            {k:'blue',    l:'#1f4ed8', d:'#6fa0ff'},
+            {k:'teal',    l:'#0e7a78', d:'#4dd0bd'},
+            {k:'graphite',l:'#2d2d33', d:'#d4d4dc'},
+          ].map(p => (
+            <div key={p.k} onClick={()=>setTweak('palette',p.k)} style={{
+              cursor:'default', padding:6, borderRadius:8,
+              background: t.palette===p.k ? 'rgba(0,0,0,0.06)' : 'transparent',
+              border: '1px solid ' + (t.palette===p.k ? 'rgba(0,0,0,0.12)':'transparent'),
+              display:'flex',flexDirection:'column',alignItems:'center',gap:4,fontSize:10
+            }}>
+              <div style={{display:'flex',gap:2}}>
+                <div style={{width:14,height:14,borderRadius:4,background:p.l}}/>
+                <div style={{width:14,height:14,borderRadius:4,background:p.d}}/>
+              </div>
+              <span style={{textTransform:'capitalize',color:'rgba(41,38,27,.7)'}}>{p.k}</span>
+            </div>
+          ))}
+        </div>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+</script>
+</body>
+</html>

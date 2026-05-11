@@ -1,5 +1,7 @@
 // Formatting helpers for bond data display
 
+import { ratingTierStyle } from './useRating'
+
 export function useFormat() {
   return {
     /** Price in RUB — e.g. "982.50 ₽" */
@@ -125,26 +127,13 @@ export function useFormat() {
     },
 
     /**
-     * Credit rating chip style by rating text (agency-specific formats).
-     * Returns { background, color } for inline styles.
+     * Credit rating chip style by rating text. Delegates to ratingTierStyle
+     * (composables/useRating.ts) which normalises the rating to its canonical
+     * tier before picking a colour — required for agency formats whose first
+     * letter doesn't match the tier (Moody's `Baa1` is BBB+, not B).
      */
     ratingChipStyle(rating: string): { background: string; color: string } {
-      const r = (rating || '').toLowerCase()
-      if (r === 'отозван' || r === 'отозвано' || r.startsWith('wd'))
-        return { background: 'rgba(108,117,125,0.12)', color: 'var(--nla-text-muted)' }
-      if (r.startsWith('aaa') || r.startsWith('ruaaa'))
-        return { background: 'rgba(25,135,84,0.14)', color: '#198754' }
-      if (r.startsWith('aa') || r.startsWith('ruaa'))
-        return { background: 'rgba(13,110,253,0.14)', color: '#0d6efd' }
-      if (r.startsWith('a') || r.startsWith('rua'))
-        return { background: 'rgba(32,201,151,0.14)', color: '#0d9488' }
-      if (r.startsWith('bbb') || r.startsWith('rubbb'))
-        return { background: 'rgba(255,193,7,0.14)', color: '#997404' }
-      if (r.startsWith('bb') || r.startsWith('rubb'))
-        return { background: 'rgba(253,126,20,0.14)', color: '#e8590c' }
-      if (r.startsWith('b') || r.startsWith('rub') || r.startsWith('c') || r.startsWith('d'))
-        return { background: 'rgba(220,53,69,0.14)', color: '#dc3545' }
-      return { background: 'rgba(108,117,125,0.12)', color: 'var(--nla-text)' }
+      return ratingTierStyle(rating)
     },
   }
 }
