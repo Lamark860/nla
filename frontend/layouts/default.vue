@@ -52,6 +52,22 @@
         <span>{{ item.label }}</span>
       </NuxtLink>
 
+      <div class="app-sidebar__section">Профиль риска</div>
+      <div class="profile-switch" role="tablist" :aria-label="'Профиль риска для аналитического индекса'">
+        <button
+          v-for="code in scoring.order"
+          :key="code"
+          class="profile-switch__btn"
+          :class="{ 'is-active': scoring.profile.value === code }"
+          :title="scoring.metaMap[code].ariaLabel"
+          :aria-pressed="scoring.profile.value === code"
+          @click="scoring.set(code)"
+        >
+          <span class="profile-switch__icon" aria-hidden="true">{{ scoring.metaMap[code].icon }}</span>
+          <span class="profile-switch__lbl">{{ scoring.metaMap[code].shortLabel }}</span>
+        </button>
+      </div>
+
       <div class="app-sidebar__bottom">
         <NuxtLink
           v-if="auth.isLoggedIn.value"
@@ -108,6 +124,10 @@ const route = useRoute()
 const colorMode = useColorMode()
 const auth = useAuth()
 const favorites = useFavorites()
+const scoring = useScoringProfile()
+
+// Pick the saved profile up from localStorage once on mount.
+onMounted(() => scoring.init())
 
 const isDark = computed(() => colorMode.value === 'dark')
 const year = new Date().getFullYear()
@@ -234,6 +254,43 @@ watch(() => route.path, () => { mobileNavOpen.value = false })
   background: var(--nla-bg-card);
   border-radius: 4px;
 }
+
+/* Scoring-profile switcher — three pill-buttons stacked vertically so
+   they fit a 240px sidebar without truncating Russian labels. */
+.profile-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 4px 6px;
+}
+.profile-switch__btn {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--nla-text-secondary);
+  font: 500 12.5px/1.2 var(--nla-font);
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.profile-switch__btn:hover {
+  background: var(--nla-bg-subtle);
+  color: var(--nla-text);
+}
+.profile-switch__btn.is-active {
+  background: var(--nla-primary-light);
+  border-color: color-mix(in oklab, var(--nla-primary) 30%, transparent);
+  color: var(--nla-primary-ink);
+  font-weight: 600;
+}
+[data-theme="dark"] .profile-switch__btn.is-active { color: var(--nla-primary); }
+.profile-switch__icon { font-size: 15px; line-height: 1; }
+.profile-switch__lbl  { letter-spacing: -0.005em; }
 
 .app-sidebar__bottom {
   margin-top: auto;

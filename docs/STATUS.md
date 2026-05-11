@@ -7,7 +7,8 @@
 
 **Фаза 1 — инфра-упрощение** ✅ done (2026-05-11).
 
-**Фаза 2 — Scoring engine** — backend готов. UI ещё не подключён.
+**Фаза 2 — Scoring engine** — backend готов.
+**Фаза 3 — UI трёх профилей** — первый раунд собран (sidebar switcher + 3 бейджа на hero + новый таб «Индекс» с breakdown + кнопка «Получить разбор»). Открыто: 3-бейдж-режим на главных страницах (IssuerCardGrid / by-issuer / monthly) — пока не подключён, требует batch-эндпоинта.
 
 ### Сделано (2026-05-11, не закоммичено на момент записи)
 
@@ -60,8 +61,8 @@
 |---|---|---|---|
 | 0 — терминология + доки | ✅ done | 2026-05-11 | `v0.14.8` в CHANGELOG. Не закоммичено |
 | 1 — инфра-упрощение | ✅ done | 2026-05-11 | `v0.15.0` в CHANGELOG. Стек: api + postgres + frontend(nginx+SSG). 3295 issuers, 631 ratings, 57 analyses, 47 dohod, 1 chat session/4 messages мигрированы из Mongo |
-| 2 — scoring engine | 🟡 backend done | 2026-05-11 | Engine + repo + service + handler + worker job + LLM-prompt. API/profile/score/explain эндпоинты живут. Открыто: UI (Фаза 3) и ОФЗ-бенчмарк для factor #3 |
-| 3 — UI 3 профилей | ⏳ ждёт | — | — |
+| 2 — scoring engine | 🟡 backend done | 2026-05-11 | Engine + repo + service + handler + worker job + LLM-prompt. API/profile/score/explain эндпоинты живут. Открыто: ОФЗ-бенчмарк для factor #3 |
+| 3 — UI 3 профилей | 🟡 partial | 2026-05-11 | Sidebar switcher + 3 бейджа на BondHero + BondScoreTab (breakdown 12 факторов + кнопка разбора с polling). Открыто: 3-бейджи на главных списках, сортировка по активному профилю |
 | 4 — portfolio | ⏳ ждёт | — | — |
 | 5 — Tinkoff events | ⏳ ждёт | — | — |
 | 6 — мелочи (скринеры, ical, реф) | ⏳ ждёт | — | — |

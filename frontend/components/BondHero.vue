@@ -44,12 +44,30 @@
       </div>
     </div>
 
-    <!-- Tags row: rating badges, category, status, period, risk -->
+    <!-- Tags row: rating badges, three scoring profiles, category/status/period/risk -->
     <div class="bond-hero__tags">
       <RatingBadge v-for="r in ratings" :key="r.agency" :rating="r.rating" :agency="r.agency" />
-      <AiScore v-if="aiScore != null" :value="aiScore" />
 
-      <span class="bond-hero__divider" v-if="ratings.length || aiScore != null"></span>
+      <!-- Phase 3 — three deterministic scores, active profile highlighted.
+           Click → switch the global profile + jump to the scoring tab. -->
+      <template v-if="scores && scores.length">
+        <button
+          v-for="s in scoresOrdered"
+          :key="s.profile_code"
+          class="hero-score"
+          :class="{ 'is-active': s.profile_code === scoring.profile.value }"
+          :title="profileTitle(s)"
+          @click="onScoreClick(s.profile_code)"
+        >
+          <span class="hero-score__icon" aria-hidden="true">{{ scoring.metaMap[s.profile_code as any]?.icon || '•' }}</span>
+          <span class="hero-score__val" :style="fmt.aiRatingStyleSoft(s.score)">{{ Math.round(s.score) }}</span>
+        </button>
+      </template>
+
+      <!-- Legacy LLM-analysis aggregate score; kept while the old tab lives. -->
+      <AiScore v-else-if="aiScore != null" :value="aiScore" />
+
+      <span class="bond-hero__divider" v-if="ratings.length || aiScore != null || (scores && scores.length)"></span>
 
       <Tag v-if="categoryLabel" :tone="bond.is_float ? 'primary' : 'default'">{{ categoryLabel }}</Tag>
       <Tag v-if="periodLabel">{{ periodLabel }}</Tag>
@@ -111,7 +129,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Bond } from '~/composables/useApi'
+import type { Bond, ScoreResponse } from '~/composables/useApi'
+import type { ProfileCode } from '~/composables/useScoringProfile'
 import RatingBadge from './RatingBadge.vue'
 import AiScore from './AiScore.vue'
 import Tag from './Tag.vue'
@@ -122,17 +141,40 @@ const props = defineProps<{
   bond: Bond
   ratings?: Array<{ agency: string; rating: string }>
   aiScore?: number | null
+  scores?: ScoreResponse[] | null
   issuerName?: string
   isFavorite?: boolean
 }>()
-defineEmits<{
+const emit = defineEmits<{
   'toggle-favorite': []
   'share': []
   'analyze': []
+  'open-score': []
 }>()
 
 const fmt = useFormat()
 const auth = useAuth()
+const scoring = useScoringProfile()
+
+const profileOrder: ProfileCode[] = ['low', 'mid', 'high']
+const scoresOrdered = computed(() => {
+  if (!props.scores) return []
+  return [...props.scores].sort((a, b) =>
+    profileOrder.indexOf(a.profile_code as ProfileCode) - profileOrder.indexOf(b.profile_code as ProfileCode))
+})
+
+function profileTitle(s: ScoreResponse): string {
+  const name = s.profile_name || scoring.metaMap[s.profile_code as ProfileCode]?.label || s.profile_code
+  return `${name}: ${Math.round(s.score)}/100`
+}
+
+// Click on a hero score: pick that profile as the global active one and
+// jump to the dedicated breakdown tab. The page owns the tab state, so
+// we hand control over via an event.
+function onScoreClick(code: string) {
+  if (profileOrder.includes(code as ProfileCode)) scoring.set(code as ProfileCode)
+  emit('open-score')
+}
 
 const ratings = computed(() => (props.ratings || []).filter(r => r.rating && r.rating !== 'NULL'))
 
@@ -308,6 +350,42 @@ const riskLabel = computed(() => {
   height: 16px;
   background: var(--nla-border);
   margin: 0 4px;
+}
+
+/* Three-score badge cluster on the hero. Active profile gets the
+   highlighted outline so the user always sees which lens is current. */
+.hero-score {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px 2px 6px;
+  border-radius: var(--nla-radius-pill);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font: 600 11.5px/1.4 var(--nla-font);
+  color: var(--nla-text-secondary);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.hero-score:hover {
+  border-color: var(--nla-border-strong);
+  background: var(--nla-bg-subtle);
+}
+.hero-score.is-active {
+  border-color: color-mix(in oklab, var(--nla-primary) 45%, transparent);
+  background: var(--nla-primary-light);
+  color: var(--nla-primary-ink);
+}
+[data-theme="dark"] .hero-score.is-active { color: var(--nla-primary); }
+.hero-score__icon { font-size: 13px; line-height: 1; }
+.hero-score__val {
+  padding: 2px 8px;
+  border-radius: var(--nla-radius-pill);
+  font-family: var(--nla-font-mono);
+  font-feature-settings: 'tnum';
+  font-weight: 700;
+  font-size: 12px;
 }
 
 .bond-hero__risk {

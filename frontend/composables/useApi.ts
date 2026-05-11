@@ -243,6 +243,49 @@ export interface IssuerGroupResponse {
   total_bonds: number
 }
 
+// ---------- Scoring engine (Phase 2 backend) ----------
+
+export interface ScoringProfile {
+  code: string
+  name: string
+  is_preset: boolean
+  user_id?: number | null
+  weights: Record<string, number>
+  created_at: string
+  updated_at: string
+}
+
+// One row of the 12-factor breakdown — what the engine actually computed.
+export interface BreakdownItem {
+  factor: string             // factor code, e.g. "credit_rating"
+  name: string               // RU label
+  raw?: number               // raw value in native unit; omitted if has_data=false
+  normalized: number         // 0..100
+  weight: number             // signed weight from the profile
+  contribution: number       // weight * normalized
+  has_data: boolean
+}
+
+export interface BondScoreExplanation {
+  id: number
+  bond_score_id: number
+  llm_model: string
+  text: string
+  created_at: string
+}
+
+export interface ScoreResponse {
+  score_id: number
+  secid: string
+  profile_code: string
+  profile_name?: string
+  score: number
+  breakdown: BreakdownItem[]
+  missing_factors?: string[]
+  computed_at: string
+  explanation?: BondScoreExplanation
+}
+
 export interface DohodBondData {
   isin: string
   secid: string
@@ -460,6 +503,30 @@ export function useApi() {
     // Dohod.ru details
     getDohodDetails(secid: string) {
       return apiFetch<DohodBondData | { job_id: string; status: string }>(`/bonds/${secid}/dohod`)
+    },
+
+    // Scoring engine (Phase 2 / Phase 3)
+    listScoringProfiles() {
+      return apiFetch<ScoringProfile[]>('/scoring/profiles')
+    },
+
+    // No profile param → returns all three (array). With param → single object.
+    getScore(secid: string): Promise<ScoreResponse[]> {
+      return apiFetch<ScoreResponse[]>(`/bonds/${secid}/score`)
+    },
+
+    getScoreForProfile(secid: string, profile: string) {
+      return apiFetch<ScoreResponse>(`/bonds/${secid}/score?profile=${encodeURIComponent(profile)}`)
+    },
+
+    // Async — enqueues a JobTypeScoreExplain. Frontend polls /jobs/{id}
+    // as it already does for analyze, then re-fetches getScoreForProfile
+    // to pick up the new explanation row.
+    requestScoreExplanation(secid: string, profile: string) {
+      return apiFetch<{ job_id: string; status: string; score_id: number }>(
+        `/bonds/${secid}/score/explain?profile=${encodeURIComponent(profile)}`,
+        { method: 'POST' },
+      )
     },
   }
 }

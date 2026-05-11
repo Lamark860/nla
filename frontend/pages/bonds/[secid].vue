@@ -24,12 +24,14 @@
         :bond="data"
         :ratings="heroRatings"
         :ai-score="analysisStats?.avg_rating ?? null"
+        :scores="scores ?? null"
         :issuer-name="issuerRating?.issuer"
         :is-favorite="favorites.isFavorite(data.secid)"
         class="mb-4"
         @toggle-favorite="favorites.toggle(data.secid)"
         @share="copyShareLink"
         @analyze="activeTab = 'ai'"
+        @open-score="activeTab = 'score'"
       />
 
       <!-- Tabs (pill-style) -->
@@ -53,6 +55,7 @@
         <BondYieldsTab v-else-if="activeTab === 'yields'" :bond="data" />
         <BondHistoryTab v-else-if="activeTab === 'history'" :history="history ?? []" :bond="data" />
         <BondDetailsTab v-else-if="activeTab === 'details'" :bond="data" :dohod="dohod" :dohod-loading="dohodLoading" />
+        <BondScoreTab v-else-if="activeTab === 'score'" :secid="secid" :scores="scores ?? null" @refresh="refreshScores" />
         <BondAiTab v-else-if="activeTab === 'ai'" :secid="secid" :bond="data" :dohod="dohod" :analyses="analyses" :job-id="currentJobId" @analysis-complete="onAnalysisComplete" @analysis-deleted="refreshAnalyses" @start-analysis="startAnalysis" />
         <BondExternalTab v-else-if="activeTab === 'external'" :secid="secid" />
       </div>
@@ -61,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import type { IssuerRatingResponse, DohodBondData } from '~/composables/useApi'
+import type { IssuerRatingResponse, DohodBondData, ScoreResponse } from '~/composables/useApi'
 
 const route = useRoute()
 const api = useApi()
@@ -78,7 +81,8 @@ const tabs = [
   { id: 'yields', label: 'Доходности', icon: 'bi-graph-up' },
   { id: 'coupons', label: 'Купоны', icon: 'bi-cash-stack' },
   { id: 'details', label: 'Детали', icon: 'bi-list-columns-reverse' },
-  { id: 'ai', label: 'Индекс', icon: 'bi-stars' },
+  { id: 'score', label: 'Индекс', icon: 'bi-shield-shaded' },
+  { id: 'ai', label: 'Разбор LLM', icon: 'bi-stars' },
   { id: 'external', label: 'Внешние', icon: 'bi-box-arrow-up-right' },
 ]
 
@@ -89,6 +93,15 @@ const { data: history } = useAsyncData(`history-${secid}`, () => api.getBondHist
 
 const { data: analyses, refresh: refreshAnalyses } = useAsyncData(`analyses-${secid}`, () => api.getAnalyses(secid))
 const { data: analysisStats } = useAsyncData(`stats-${secid}`, () => api.getAnalysisStats(secid))
+
+// Phase 3 — three deterministic scores (low/mid/high). Lazy so the page
+// renders without waiting for the 3-profile compute; the tab + hero
+// badges show a loading state until this resolves.
+const { data: scores, refresh: refreshScores } = useAsyncData<ScoreResponse[]>(
+  `scores-${secid}`,
+  () => api.getScore(secid),
+  { lazy: true },
+)
 
 // Fetch issuer credit rating by emitter_id (from all ratings map)
 const issuerRating = ref<IssuerRatingResponse | null>(null)
