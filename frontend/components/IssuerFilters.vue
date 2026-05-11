@@ -327,7 +327,10 @@ export const Chip = defineComponent({
 }
 .filters__row { display: flex; gap: 8px; flex-wrap: wrap; }
 .filters__row--selects > * { flex: 1 1 180px; }
-.filters__row--ranges  > * { flex: 1 1 150px; }
+/* 4 диапазонов × 170px ≈ 680px ширины перед переносом — native spinner
+   занимает ~14px справа от инпута, плюс «от»/«до» по центру + dash +
+   suffix. Меньше 170 — стрелочки начинают наезжать на цифры. */
+.filters__row--ranges  > * { flex: 1 1 170px; }
 
 /* search row layout */
 .filters__row--search { display: flex; gap: 8px; align-items: stretch; }
@@ -452,7 +455,7 @@ export const Chip = defineComponent({
   align-items: center;
   gap: 4px;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 6px 0 8px;
   background: var(--nla-bg-input);
   border: 1px solid var(--nla-border);
   border-radius: var(--nla-radius);
@@ -461,8 +464,12 @@ export const Chip = defineComponent({
   border-color: var(--nla-primary);
   box-shadow: 0 0 0 3px var(--nla-primary-subtle);
 }
+/* Two fields share the container 50/50 via flex-basis 0 — no more visual
+   asymmetry where "до" appeared wider than "от" because the suffix's
+   margin-left:auto was eating leftover space on the right. */
 :deep(.if-range__field) {
-  width: 44px;
+  flex: 1 1 0;
+  min-width: 0;
   text-align: center;
   border: 0;
   background: transparent;
@@ -470,13 +477,13 @@ export const Chip = defineComponent({
   font-feature-settings: 'tnum';
   color: var(--nla-text);
   outline: none;
-  -moz-appearance: textfield;
 }
 :deep(.if-range__field::placeholder) { font-size: 11px; }
-:deep(.if-range__field::-webkit-outer-spin-button),
-:deep(.if-range__field::-webkit-inner-spin-button) { -webkit-appearance: none; margin: 0; }
-:deep(.if-range__dash)  { color: var(--nla-text-muted); font-size: 11px; }
-:deep(.if-range__suffix){ color: var(--nla-text-muted); font-size: 11px; margin-left: auto; padding-left: 4px; }
+/* Native number-input spinners stay visible so the user can nudge the
+   value by `step` (0.1 for percent ranges) with the arrow keys or
+   click-arrows. */
+:deep(.if-range__dash)   { color: var(--nla-text-muted); font-size: 11px; flex-shrink: 0; }
+:deep(.if-range__suffix) { color: var(--nla-text-muted); font-size: 11px; flex-shrink: 0; padding-left: 2px; }
 
 :deep(.if-chip) {
   display: inline-flex;
