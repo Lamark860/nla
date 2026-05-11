@@ -8,8 +8,10 @@
 //   sector       — value from sectorOptions; not currently mapped against bond data (TODO)
 //   rating       — 'AAA' | 'AA' | 'A' | 'BBB' | 'BB' | 'B_BELOW' | 'NONE' | ''
 //   aiBucket     — '80+' | '60-80' | '40-60' | '<40' | ''
-//   yield/coupon/maturity — { min: string; max: string } numeric ranges (empty strings ignored).
-//                            `maturity` filters bond.days_to_maturity (in days).
+//   yield/coupon/price/maturity — { min: string; max: string } numeric ranges
+//                            (empty strings ignored). `maturity` filters
+//                            bond.days_to_maturity (in days). `price` filters
+//                            bond.last (% of face value, MOEX convention).
 //   tradeable    — bond.trading_status === 'T'
 //   hasRating    — only issuers with at least one parsed rating
 //   isFloat      — bond.is_float
@@ -26,6 +28,7 @@ export interface IssuerFilterState {
   aiBucket: string
   yield: { min: string; max: string }
   coupon: { min: string; max: string }
+  price: { min: string; max: string }
   maturity: { min: string; max: string }
   tradeable: boolean
   hasRating: boolean
@@ -38,6 +41,7 @@ export function emptyIssuerFilterState(): IssuerFilterState {
     search: '', category: '', sector: '', rating: '', aiBucket: '',
     yield:    { min: '', max: '' },
     coupon:   { min: '', max: '' },
+    price:    { min: '', max: '' },
     maturity: { min: '', max: '' },
     tradeable: false, hasRating: false, isFloat: false, hideMatured: true,
   }
@@ -95,6 +99,7 @@ export function matchesBond(bond: Bond, f: IssuerFilterState): boolean {
   if (f.hideMatured && bond.days_to_maturity != null && bond.days_to_maturity <= 0) return false
   if (!inRange(bond.yield, f.yield.min, f.yield.max)) return false
   if (!inRange(bond.coupon_percent, f.coupon.min, f.coupon.max)) return false
+  if (!inRange(bond.last, f.price.min, f.price.max)) return false
   if (!inRange(bond.days_to_maturity, f.maturity.min, f.maturity.max)) return false
   // sector — backend doesn't expose comparable codes yet; intentional no-op
   return true

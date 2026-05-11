@@ -61,8 +61,9 @@
         </div>
 
         <div class="filters__row filters__row--ranges">
-          <RangeField v-model="state.yield" label="Доходность" suffix="%" @change="emitChange" />
-          <RangeField v-model="state.coupon" label="Купон" suffix="%" @change="emitChange" />
+          <RangeField v-model="state.yield" label="Доходность" suffix="%" step="0.1" @change="emitChange" />
+          <RangeField v-model="state.coupon" label="Купон" suffix="%" step="0.1" @change="emitChange" />
+          <RangeField v-model="state.price" label="Цена" suffix="%" step="0.1" @change="emitChange" />
           <RangeField v-model="state.maturity" label="До погашения" suffix=" дн" @change="emitChange" />
         </div>
       </div>
@@ -114,6 +115,7 @@ const state = reactive({
   aiBucket: '',
   yield: { min: '', max: '' } as { min: string; max: string },
   coupon: { min: '', max: '' },
+  price: { min: '', max: '' },
   maturity: { min: '', max: '' },
   tradeable: false,
   hasRating: false,
@@ -160,6 +162,7 @@ const activeCount = computed(() => {
   if (state.aiBucket) n++
   if (state.yield.min || state.yield.max) n++
   if (state.coupon.min || state.coupon.max) n++
+  if (state.price.min || state.price.max) n++
   if (state.maturity.min || state.maturity.max) n++
   if (state.tradeable) n++
   if (state.hasRating) n++
@@ -177,6 +180,7 @@ const advancedActiveCount = computed(() => {
   if (state.aiBucket) n++
   if (state.yield.min || state.yield.max) n++
   if (state.coupon.min || state.coupon.max) n++
+  if (state.price.min || state.price.max) n++
   if (state.maturity.min || state.maturity.max) n++
   return n
 })
@@ -193,6 +197,7 @@ function reset() {
   state.category = state.sector = state.rating = state.aiBucket = ''
   state.yield = { min: '', max: '' }
   state.coupon = { min: '', max: '' }
+  state.price = { min: '', max: '' }
   state.maturity = { min: '', max: '' }
   state.tradeable = state.hasRating = state.isFloat = false
   state.hideMatured = true
@@ -241,7 +246,14 @@ export const Select = defineComponent({
 
 export const RangeField = defineComponent({
   name: 'IF_RangeField',
-  props: { modelValue: Object as any, label: String, suffix: String },
+  props: {
+    modelValue: Object as any,
+    label: String,
+    suffix: String,
+    // Native <input type=number> step; controls the up/down arrow increment.
+    // Use "0.1" for price/yield-style filters where 1-unit jumps are too coarse.
+    step: { type: String, default: '1' },
+  },
   emits: ['update:modelValue', 'change'],
   setup(props, { emit }) {
     const update = (k: 'min' | 'max') => (e: Event) => {
@@ -252,9 +264,9 @@ export const RangeField = defineComponent({
     return () => h('div', { class: 'if-range' }, [
       h('span', { class: 'if-range__lbl' }, props.label),
       h('div', { class: 'if-range__pair' }, [
-        h('input', { type: 'number', class: 'if-range__field', placeholder: 'от', value: props.modelValue.min, onInput: update('min') }),
+        h('input', { type: 'number', step: props.step, class: 'if-range__field', placeholder: 'от', value: props.modelValue.min, onInput: update('min') }),
         h('span', { class: 'if-range__dash' }, '—'),
-        h('input', { type: 'number', class: 'if-range__field', placeholder: 'до', value: props.modelValue.max, onInput: update('max') }),
+        h('input', { type: 'number', step: props.step, class: 'if-range__field', placeholder: 'до', value: props.modelValue.max, onInput: update('max') }),
         props.suffix ? h('span', { class: 'if-range__suffix' }, props.suffix) : null
       ])
     ])
