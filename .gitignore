@@ -1,6 +1,8 @@
-# Binaries
+# Binaries (any go build output at repo root)
 /api
 /nla-api
+/migrate-mongo-pg
+/sync-ratings
 *.exe
 
 # Test artifacts
